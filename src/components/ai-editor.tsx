@@ -12,7 +12,7 @@ import {
   type AppliedToolCall,
   type PageConfig,
 } from "@/lib/page-config";
-import { type ChatMessage, type ChatHistory, makeChatId } from "@/lib/chat-types";
+import { type AiActivityEvent, type ChatMessage, type ChatHistory, makeChatId } from "@/lib/chat-types";
 
 type ApiResponse =
   | {
@@ -46,7 +46,9 @@ export function AiEditor() {
   const [chatMessages, setChatMessages] = useState<ChatHistory>([]);
   const chatMessagesRef = useRef<ChatHistory>([]);
   const configRef = useRef<PageConfig>(samplePageConfig);
+  const liveActivityRef = useRef<AiActivityEvent[]>([]);
   const [isLoading, setIsLoading] = useState(false);
+  const [liveActivity, setLiveActivity] = useState<AiActivityEvent[]>([]);
 
   // Undo/redo
   const [configHistory, setConfigHistory] = useState<PageConfig[]>([samplePageConfig]);
@@ -146,6 +148,8 @@ export function AiEditor() {
         timestamp: Date.now(),
       };
       addChatMessage(userMsg);
+      liveActivityRef.current = [];
+      setLiveActivity([]);
       setIsLoading(true);
 
       try {
@@ -160,10 +164,23 @@ export function AiEditor() {
             prompt: message,
             config: configRef.current,
             chatHistory: history,
+            stream: true,
           }),
         });
 
-        const result = (await response.json()) as ApiResponse;
+        if (!response.ok || !response.body) {
+          const fallback = (await response.json()) as ApiResponse;
+          if (!fallback.ok) throw new Error(fallback.error);
+          throw new Error("Streaming response was not available.");
+        }
+
+        const result = await readActivityStream(response.body, (event) => {
+          liveActivityRef.current = [...liveActivityRef.current, event];
+          setLiveActivity(liveActivityRef.current);
+          if (event.type === "error") {
+            throw new Error(event.detail ?? event.label);
+          }
+        });
 
         if (!result.ok) {
           throw new Error(result.error);
@@ -178,12 +195,15 @@ export function AiEditor() {
           timestamp: Date.now(),
           toolCalls: result.ai.tool_calls,
           flow: result.flow,
+          activity: liveActivityRef.current,
           aiRequests: result.aiRequests,
           maxAiRequests: result.maxAiRequests,
           totalRetries: result.totalRetries,
           configSnapshot: result.config,
         };
         addChatMessage(assistantMsg);
+        liveActivityRef.current = [];
+        setLiveActivity([]);
       } catch (error) {
         const errMsg: ChatMessage = {
           role: "system",
@@ -192,6 +212,8 @@ export function AiEditor() {
           timestamp: Date.now(),
         };
         addChatMessage(errMsg);
+        liveActivityRef.current = [];
+        setLiveActivity([]);
       } finally {
         setIsLoading(false);
       }
@@ -261,6 +283,7 @@ export function AiEditor() {
           <div className="flex-1 min-h-0">
             <ChatWindow
               isLoading={isLoading}
+              liveActivity={liveActivity}
               messages={chatMessages}
               onSend={handleSend}
               suggestions={suggestions}
@@ -329,6 +352,40 @@ export function AiEditor() {
       </div>
     </main>
   );
+}
+
+async function readActivityStream(body: ReadableStream<Uint8Array>, onEvent: (event: AiActivityEvent) => void): Promise<ApiResponse> {
+  const reader = body.getReader();
+  const decoder = new TextDecoder();
+  let buffer = "";
+  let result: ApiResponse | null = null;
+
+  while (true) {
+    const { value, done } = await reader.read();
+    if (done) break;
+
+    buffer += decoder.decode(value, { stream: true });
+    const lines = buffer.split("\n");
+    buffer = lines.pop() ?? "";
+
+    for (const line of lines) {
+      const trimmed = line.trim();
+      if (!trimmed) continue;
+      const event = JSON.parse(trimmed) as AiActivityEvent;
+      onEvent(event);
+      if (event.type === "done" && event.data) result = event.data as ApiResponse;
+    }
+  }
+
+  const finalLine = buffer.trim();
+  if (finalLine) {
+    const event = JSON.parse(finalLine) as AiActivityEvent;
+    onEvent(event);
+    if (event.type === "done" && event.data) result = event.data as ApiResponse;
+  }
+
+  if (!result) throw new Error("AI stream ended before returning a result.");
+  return result;
 }
 
 function LinkManager({

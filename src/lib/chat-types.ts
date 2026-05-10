@@ -1,5 +1,13 @@
 import type { AiEditResponse, AppliedToolCall, PageConfig } from "./page-config";
 
+export type AiActivityEvent = {
+  type: "status" | "decision" | "tool" | "retry" | "done" | "error";
+  label: string;
+  detail?: string;
+  data?: unknown;
+  ts?: number;
+};
+
 export type ChatMessageUser = {
   role: "user";
   id: string;
@@ -14,6 +22,7 @@ export type ChatMessageAssistant = {
   timestamp: number;
   toolCalls: AiEditResponse["tool_calls"];
   flow: AppliedToolCall[];
+  activity?: AiActivityEvent[];
   aiRequests: number;
   maxAiRequests: number;
   totalRetries: number;

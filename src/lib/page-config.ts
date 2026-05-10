@@ -299,12 +299,7 @@ export const AiToolCallSchema = z.discriminatedUnion("tool", [
       args: z.object({ id: z.string().min(1).max(80).regex(/^[a-z0-9-]+$/) }).strict()
     })
     .strict(),
-  z
-    .object({
-      tool: z.literal("request_context"),
-      args: z.object({ sections: z.array(z.enum(contextSections)).min(1).max(5), reason: z.string().min(1).max(180) }).strict()
-    })
-    .strict(),
+
   z
     .object({
       tool: z.literal("change_background"),
@@ -329,14 +324,14 @@ export const AiToolCallSchema = z.discriminatedUnion("tool", [
       args: z.object({ id: z.string().min(1).max(64), style: z.enum(featuredStyles).optional() }).strict()
     })
     .strict(),
-  z.object({ tool: z.literal("continue_after_apply"), args: z.object({ reason: z.string().min(1).max(180) }).strict() }).strict(),
+  z.object({ tool: z.literal("reset_page"), args: z.object({}).strict() }).strict(),
   z.object({ tool: z.literal("validate_result"), args: z.object({ checklist: z.array(z.string().min(1).max(120)).min(1).max(8) }).strict() }).strict()
 ]);
 
 export const AiEditResponseSchema = z
   .object({
     message: z.string().min(1).max(240),
-    tool_calls: z.array(AiToolCallSchema).min(1).max(12)
+    tool_calls: z.array(AiToolCallSchema).min(1).max(16)
   })
   .strict();
 
@@ -409,3 +404,34 @@ export const samplePageConfig: PageConfig = {
 export function safeParsePageConfig(value: unknown) {
   return PageConfigSchema.safeParse(value);
 }
+
+export const defaultVisualConfig = {
+  theme: {
+    mood: "clean" as const,
+    background: "white" as const,
+    accent: "blue" as const,
+    font: "modern" as const,
+    surface: "paper" as const,
+    text: "dark" as const,
+  },
+  layout: {
+    preset: "centered-stack" as const,
+    spacing: "normal" as const,
+    alignment: "center" as const,
+    width: "medium" as const,
+  },
+  linkStyle: {
+    shape: "rounded" as const,
+    fill: "soft" as const,
+    size: "md" as const,
+    shadow: "soft" as const,
+    animation: "lift" as const,
+  },
+  emphasis: {
+    featuredStyle: "none" as const,
+  },
+  creativeLayer: {
+    enabled: false,
+    elements: [] as const,
+  },
+};

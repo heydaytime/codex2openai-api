@@ -6,3 +6,5 @@ dist/
 *.log
 tsconfig.tsbuildinfo
 Bun.lockb
+data/
+.cache/

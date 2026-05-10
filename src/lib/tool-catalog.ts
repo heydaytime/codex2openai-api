@@ -18,7 +18,6 @@ import {
   featuredStyles,
   sceneElementKinds,
   sceneEasings,
-  contextSections,
 } from "./page-config";
 import { presetTools } from "./preset-tools";
 
@@ -56,15 +55,7 @@ export const toolCatalog: ToolDefinition[] = [
       { name: "id", type: "string", required: true, description: "Preset operation id returned by the local embedding search" },
     ],
   },
-  {
-    name: "request_context",
-    description: "Ask for more information about the current page before making changes. Consumes one AI pass.",
-    category: "context",
-    args: [
-      { name: "sections", type: "array", required: true, description: "Which parts of the config to inspect", values: contextSections as unknown as string[] },
-      { name: "reason", type: "string", required: true, description: "Why the context is needed (max 180 chars)" },
-    ],
-  },
+
   {
     name: "change_background",
     description: "Change the page background to a preset gradient/color or a custom CSS gradient.",
@@ -147,12 +138,10 @@ export const toolCatalog: ToolDefinition[] = [
     ],
   },
   {
-    name: "continue_after_apply",
-    description: "Signal that the AI wants another pass after current tool calls are applied. Consumes one AI pass.",
+    name: "reset_page",
+    description: "Reset all visual properties (theme, layout, link style, creative layer, emphasis) back to clean defaults. User data (links, bio, name) is preserved.",
     category: "control",
-    args: [
-      { name: "reason", type: "string", required: true, description: "Why another pass is needed (max 180 chars)" },
-    ],
+    args: [],
   },
   {
     name: "validate_result",

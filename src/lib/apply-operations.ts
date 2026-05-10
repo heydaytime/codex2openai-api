@@ -1,4 +1,4 @@
-import { PageConfigSchema, type AiToolCall, type AppliedToolCall, type PageConfig } from "./page-config";
+import { PageConfigSchema, defaultVisualConfig, type AiToolCall, type AppliedToolCall, type PageConfig } from "./page-config";
 import { findPresetTool } from "./preset-tools";
 
 type ApplyOptions = {
@@ -50,7 +50,7 @@ export function dedupeToolCalls(toolCalls: AiToolCall[]) {
 }
 
 export function isControlTool(toolCall: AiToolCall) {
-  return toolCall.tool === "fuzz_find" || toolCall.tool === "request_context" || toolCall.tool === "continue_after_apply" || toolCall.tool === "validate_result";
+  return toolCall.tool === "fuzz_find" || toolCall.tool === "validate_result";
 }
 
 function applyOne(config: PageConfig, toolCall: AiToolCall): PageConfig {
@@ -58,8 +58,6 @@ function applyOne(config: PageConfig, toolCall: AiToolCall): PageConfig {
 
   switch (toolCall.tool) {
     case "fuzz_find":
-    case "request_context":
-    case "continue_after_apply":
     case "validate_result":
       break;
     case "apply_preset": {
@@ -71,6 +69,14 @@ function applyOne(config: PageConfig, toolCall: AiToolCall): PageConfig {
       }
       return PageConfigSchema.parse(presetConfig);
     }
+    case "reset_page":
+      next.theme = { ...next.theme, ...defaultVisualConfig.theme, backgroundCss: undefined };
+      next.layout = { ...defaultVisualConfig.layout };
+      next.linkStyle = { ...defaultVisualConfig.linkStyle };
+      next.emphasis = { featuredLinkId: undefined, ...defaultVisualConfig.emphasis };
+      next.creativeLayer = { enabled: false, elements: [] };
+      next.links = next.links.map((link) => ({ ...link, featured: false }));
+      break;
     case "change_background":
       if (toolCall.args.css) {
         next.theme.background = "custom";
@@ -105,7 +111,9 @@ function applyOne(config: PageConfig, toolCall: AiToolCall): PageConfig {
       ensureLinkExists(next, toolCall.args.id);
       next.emphasis.featuredLinkId = toolCall.args.id;
       next.emphasis.featuredStyle = toolCall.args.style ?? "glow";
-      next.links = next.links.map((link) => ({ ...link, featured: link.id === toolCall.args.id }));
+      next.links = next.links.map((link) =>
+        link.id === toolCall.args.id ? { ...link, featured: true } : link
+      );
       break;
     default:
       toolCall satisfies never;
@@ -125,9 +133,8 @@ function validateFeaturedLink(config: PageConfig) {
 function describeToolCall(toolCall: AiToolCall, changed: boolean) {
   if (toolCall.tool === "fuzz_find") return `Searched preset tools: ${toolCall.args.queries.join("; ")}`;
   if (toolCall.tool === "apply_preset") return changed ? `Applied preset: ${toolCall.args.id}` : `Skipped preset: ${toolCall.args.id}; config was already equivalent`;
-  if (toolCall.tool === "request_context") return `Requested context: ${toolCall.args.sections.join(", ")}`;
-  if (toolCall.tool === "continue_after_apply") return "Asked for another AI pass after applying current tools";
   if (toolCall.tool === "validate_result") return `Validation checklist: ${toolCall.args.checklist.join("; ")}`;
+  if (toolCall.tool === "reset_page") return changed ? "Reset all visual properties to defaults" : "Skipped reset; already at defaults";
 
   const action = toolCall.tool.replaceAll("_", " ");
   return changed ? `Applied ${action}` : `Skipped ${action}; config was already equivalent`;

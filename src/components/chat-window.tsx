@@ -1,17 +1,19 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import type { ChatMessage } from "@/lib/chat-types";
+import type { AiActivityEvent, ChatMessage } from "@/lib/chat-types";
 import type { AppliedToolCall, AiEditResponse } from "@/lib/page-config";
 
 export function ChatWindow({
   messages,
   isLoading,
+  liveActivity,
   onSend,
   suggestions,
 }: {
   messages: ChatMessage[];
   isLoading: boolean;
+  liveActivity: AiActivityEvent[];
   onSend: (message: string) => void;
   suggestions: string[];
 }) {
@@ -64,11 +66,14 @@ export function ChatWindow({
             <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-xl bg-fuchsia-400/20 text-sm font-black text-fuchsia-300">
               AI
             </div>
-            <div className="rounded-2xl rounded-tl-md border border-white/10 bg-white/[0.04] px-4 py-3">
-              <div className="flex items-center gap-2">
-                <LoadingDots />
-                <span className="text-sm text-zinc-400">Planning tool calls...</span>
+            <div className="max-w-[85%] space-y-3">
+              <div className="rounded-2xl rounded-tl-md border border-white/10 bg-white/[0.04] px-4 py-3">
+                <div className="flex items-center gap-2">
+                  <LoadingDots />
+                  <span className="text-sm text-zinc-400">Streaming AI activity...</span>
+                </div>
               </div>
+              <ActivityTimeline events={liveActivity} isLive />
             </div>
           </div>
         )}
@@ -161,10 +166,60 @@ function MessageBubble({ message }: { message: ChatMessage }) {
             )}
           </p>
         </div>
+        {message.activity && message.activity.length > 0 && <ActivityTimeline events={message.activity} />}
         {message.flow.length > 0 && <ToolCallFlow flow={message.flow} toolCalls={message.toolCalls} />}
       </div>
     </div>
   );
+}
+
+function ActivityTimeline({ events, isLive = false }: { events: AiActivityEvent[]; isLive?: boolean }) {
+  if (events.length === 0) {
+    return isLive ? (
+      <div className="rounded-xl border border-white/10 bg-black/30 px-3 py-2 text-xs text-zinc-500">
+        Waiting for the first server event...
+      </div>
+    ) : null;
+  }
+
+  return (
+    <div className="rounded-xl border border-white/10 bg-black/30">
+      <div className="flex items-center justify-between border-b border-white/5 px-3 py-2">
+        <span className="text-[11px] font-semibold uppercase tracking-[0.15em] text-zinc-400">
+          {isLive ? "Live Stream" : "AI Activity"}
+        </span>
+        {isLive && <span className="rounded-full bg-emerald-400/15 px-2 py-0.5 text-[10px] font-bold text-emerald-300">live</span>}
+      </div>
+      <div className="space-y-1 px-3 py-2">
+        {events.map((event, index) => (
+          <div className="flex items-start gap-2 py-1" key={`${event.ts ?? index}-${event.type}-${event.label}`}>
+            <div className={["mt-1 h-2 w-2 shrink-0 rounded-full", activityDotClass(event.type)].join(" ")} />
+            <div className="min-w-0 flex-1">
+              <div className="flex items-center gap-2">
+                <span className="text-xs font-semibold text-white">{event.label}</span>
+                <span className="text-[10px] uppercase tracking-[0.12em] text-zinc-600">{event.type}</span>
+              </div>
+              {event.detail && <p className="mt-0.5 text-[11px] leading-4 text-zinc-500">{event.detail}</p>}
+              {event.type === "tool" && event.data ? (
+                <pre className="mt-1 max-h-24 overflow-auto rounded-lg bg-black/40 p-2 text-[10px] text-zinc-400">
+                  {JSON.stringify(event.data, null, 2)}
+                </pre>
+              ) : null}
+            </div>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+function activityDotClass(type: AiActivityEvent["type"]) {
+  if (type === "tool") return "bg-fuchsia-400";
+  if (type === "decision") return "bg-sky-400";
+  if (type === "retry") return "bg-amber-400";
+  if (type === "done") return "bg-emerald-400";
+  if (type === "error") return "bg-red-400";
+  return "bg-zinc-500";
 }
 
 function ToolCallFlow({ flow, toolCalls }: { flow: AppliedToolCall[]; toolCalls: AiEditResponse["tool_calls"] }) {
