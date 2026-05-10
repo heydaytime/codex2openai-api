@@ -16,11 +16,12 @@ export const backgroundPresets = [
   "custom"
 ] as const;
 export const accentPresets = ["fuchsia", "blue", "green", "orange", "red", "gold", "mono", "purple", "cyan"] as const;
-export const fontPresets = ["modern", "editorial", "mono", "rounded", "bold"] as const;
+export const fontPresets = ["modern", "editorial", "mono", "rounded", "bold", "display", "serif", "condensed", "handwritten", "tech", "elegant"] as const;
 export const surfacePresets = ["flat", "glass", "paper", "ink", "glow-card"] as const;
 export const textPresets = ["light", "dark", "muted", "high-contrast"] as const;
 export const layoutPresets = ["centered-stack", "poster-card", "split-hero", "compact", "bold-banner"] as const;
 export const spacingPresets = ["tight", "normal", "airy"] as const;
+export const paddingPresets = ["compact", "normal", "roomy", "flush"] as const;
 export const alignmentPresets = ["left", "center"] as const;
 export const widthPresets = ["narrow", "medium", "wide"] as const;
 export const avatarStyles = ["initials", "circle", "blob", "hidden"] as const;
@@ -30,6 +31,8 @@ export const linkFills = ["solid", "glass", "outline", "soft"] as const;
 export const shadowPresets = ["none", "soft", "strong", "glow"] as const;
 export const animationPresets = ["none", "lift", "pulse-featured"] as const;
 export const featuredStyles = ["none", "larger", "glow", "top-card", "badge"] as const;
+export const titleTreatments = ["normal", "wide", "tight", "gradient", "outline"] as const;
+export const bioTreatments = ["normal", "muted", "card", "caps"] as const;
 export const linkKinds = ["social", "music", "video", "shop", "website", "other"] as const;
 export const contextSections = ["profile", "links", "visual_state", "available_tools", "current_config"] as const;
 export const sceneElementKinds = ["emoji", "text", "circle", "rectangle", "triangle"] as const;
@@ -98,7 +101,18 @@ export const LinkSchema = z
     label: z.string().min(1).max(80),
     url: z.string().min(1).max(500),
     kind: z.enum(linkKinds),
-    featured: z.boolean()
+    featured: z.boolean(),
+    style: z
+      .object({
+        shape: z.enum(linkShapes).optional(),
+        fill: z.enum(linkFills).optional(),
+        size: z.enum(sizePresets).optional(),
+        shadow: z.enum(shadowPresets).optional(),
+        animation: z.enum(animationPresets).optional(),
+        font: z.enum(fontPresets).optional()
+      })
+      .strict()
+      .optional()
   })
   .strict();
 
@@ -160,7 +174,11 @@ export const PageConfigSchema = z
         bio: z.string().max(240),
         avatarUrl: z.string().url().optional(),
         avatarStyle: z.enum(avatarStyles),
-        profileSize: z.enum(sizePresets)
+        profileSize: z.enum(sizePresets),
+        titleFont: z.enum(fontPresets).optional(),
+        bioFont: z.enum(fontPresets).optional(),
+        titleTreatment: z.enum(titleTreatments).optional(),
+        bioTreatment: z.enum(bioTreatments).optional()
       })
       .strict(),
     theme: z
@@ -179,6 +197,7 @@ export const PageConfigSchema = z
       .object({
         preset: z.enum(layoutPresets),
         spacing: z.enum(spacingPresets),
+        padding: z.enum(paddingPresets).optional(),
         alignment: z.enum(alignmentPresets),
         width: z.enum(widthPresets)
       })
@@ -217,6 +236,7 @@ const OptionalLayoutArgs = z
   .object({
     preset: z.enum(layoutPresets).optional(),
     spacing: z.enum(spacingPresets).optional(),
+    padding: z.enum(paddingPresets).optional(),
     alignment: z.enum(alignmentPresets).optional(),
     width: z.enum(widthPresets).optional()
   })
@@ -227,7 +247,11 @@ const OptionalProfileArgs = z
   .object({
     bio: z.string().max(240).optional(),
     avatarStyle: z.enum(avatarStyles).optional(),
-    profileSize: z.enum(sizePresets).optional()
+    profileSize: z.enum(sizePresets).optional(),
+    titleFont: z.enum(fontPresets).optional(),
+    bioFont: z.enum(fontPresets).optional(),
+    titleTreatment: z.enum(titleTreatments).optional(),
+    bioTreatment: z.enum(bioTreatments).optional()
   })
   .strict()
   .refine((value) => Object.values(value).some(Boolean), "change_profile needs at least one field.");
@@ -251,6 +275,19 @@ const OptionalLinkAppearanceArgs = z
   })
   .strict()
   .refine((value) => Object.values(value).some(Boolean), "change_link_appearance needs at least one field.");
+
+const OptionalIndividualLinkStyleArgs = z
+  .object({
+    id: z.string().min(1).max(64),
+    shape: z.enum(linkShapes).optional(),
+    fill: z.enum(linkFills).optional(),
+    size: z.enum(sizePresets).optional(),
+    shadow: z.enum(shadowPresets).optional(),
+    animation: z.enum(animationPresets).optional(),
+    font: z.enum(fontPresets).optional()
+  })
+  .strict()
+  .refine((value) => Object.entries(value).some(([key, val]) => key !== "id" && val !== undefined), "change_individual_link_style needs at least one style field.");
 
 const ChangeCreativeLayerArgs = z
   .object({
@@ -317,11 +354,18 @@ export const AiToolCallSchema = z.discriminatedUnion("tool", [
   z.object({ tool: z.literal("change_layout"), args: OptionalLayoutArgs }).strict(),
   z.object({ tool: z.literal("change_profile"), args: OptionalProfileArgs }).strict(),
   z.object({ tool: z.literal("change_link_appearance"), args: OptionalLinkAppearanceArgs }).strict(),
+  z.object({ tool: z.literal("change_individual_link_style"), args: OptionalIndividualLinkStyleArgs }).strict(),
   z.object({ tool: z.literal("change_creative_layer"), args: ChangeCreativeLayerArgs }).strict(),
   z
     .object({
       tool: z.literal("feature_link"),
       args: z.object({ id: z.string().min(1).max(64), style: z.enum(featuredStyles).optional() }).strict()
+    })
+    .strict(),
+  z
+    .object({
+      tool: z.literal("reorder_links"),
+      args: z.object({ order: z.array(z.string().min(1).max(64)).min(1).max(20) }).strict()
     })
     .strict(),
   z.object({ tool: z.literal("reset_page"), args: z.object({}).strict() }).strict(),
@@ -362,7 +406,11 @@ export const samplePageConfig: PageConfig = {
     displayName: "Hey Daytime",
     bio: "Producer, DJ, and visual artist building bright little worlds on the internet.",
     avatarStyle: "blob",
-    profileSize: "md"
+    profileSize: "md",
+    titleFont: "display",
+    bioFont: "modern",
+    titleTreatment: "normal",
+    bioTreatment: "normal"
   },
   theme: {
     mood: "cosmic",
@@ -376,6 +424,7 @@ export const samplePageConfig: PageConfig = {
   layout: {
     preset: "centered-stack",
     spacing: "normal",
+    padding: "normal",
     alignment: "center",
     width: "medium"
   },
@@ -417,6 +466,7 @@ export const defaultVisualConfig = {
   layout: {
     preset: "centered-stack" as const,
     spacing: "normal" as const,
+    padding: "normal" as const,
     alignment: "center" as const,
     width: "medium" as const,
   },

@@ -8,6 +8,7 @@ import {
   linkShadowClasses,
   linkShapeClasses,
   linkSizeClasses,
+  paddingClasses,
   profileSizeClasses,
   spacingClasses,
   surfaceClasses,
@@ -18,10 +19,11 @@ import {
 export function PagePreview({ config }: { config: PageConfig }) {
   const accent = accentClasses[config.theme.accent];
   const shellClass = [
-    "relative h-[720px] max-h-[80vh] min-h-[560px] w-full min-w-0 overflow-hidden rounded-[2rem] border border-white/10 p-5 shadow-2xl [contain:layout_paint]",
+    "relative h-[720px] max-h-[80vh] min-h-[560px] w-full min-w-0 overflow-hidden rounded-[2rem] border border-white/10 shadow-2xl [contain:layout_paint]",
     backgroundClasses[config.theme.background],
     textClasses[config.theme.text],
-    fontClasses[config.theme.font]
+    fontClasses[config.theme.font],
+    paddingClasses[config.layout.padding ?? "normal"]
   ].join(" ");
 
   const contentClass = getContentClass(config);
@@ -41,13 +43,14 @@ export function PagePreview({ config }: { config: PageConfig }) {
                 <a
                   className={[
                     "group flex w-full items-center justify-between text-left transition duration-300",
-                    linkShapeClasses[config.linkStyle.shape],
-                    linkFillClasses[config.linkStyle.fill],
-                    linkSizeClasses[config.linkStyle.size],
-                    linkShadowClasses[config.linkStyle.shadow],
-                    config.linkStyle.shadow === "glow" ? accent.glow : "",
-                    config.linkStyle.animation === "lift" ? "hover:-translate-y-1" : "",
-                    config.linkStyle.animation === "pulse-featured" && featured ? "animate-pulse" : "",
+                    linkShapeClasses[link.style?.shape ?? config.linkStyle.shape],
+                    linkFillClasses[link.style?.fill ?? config.linkStyle.fill],
+                    linkSizeClasses[link.style?.size ?? config.linkStyle.size],
+                    linkShadowClasses[link.style?.shadow ?? config.linkStyle.shadow],
+                    fontClasses[link.style?.font ?? config.theme.font],
+                    (link.style?.shadow ?? config.linkStyle.shadow) === "glow" ? accent.glow : "",
+                    (link.style?.animation ?? config.linkStyle.animation) === "lift" ? "hover:-translate-y-1" : "",
+                    (link.style?.animation ?? config.linkStyle.animation) === "pulse-featured" && featured ? "animate-pulse" : "",
                     featured ? getFeaturedClass(config) : ""
                   ].join(" ")}
                   href={link.url}
@@ -185,10 +188,25 @@ function ProfileBlock({ config }: { config: PageConfig }) {
         </div>
       ) : null}
       <p className="mb-3 text-xs uppercase tracking-[0.35em] opacity-70">linkqt.me/{config.slug}</p>
-      <h1 className={["break-words font-black leading-none", size.title].join(" ")}>{config.profile.displayName}</h1>
-      <p className={["mt-5 max-w-xl break-words leading-7 opacity-80", size.bio].join(" ")}>{config.profile.bio}</p>
+      <h1 className={["break-words font-black leading-none", size.title, fontClasses[config.profile.titleFont ?? config.theme.font], titleTreatmentClass(config.profile.titleTreatment)].join(" ")}>{config.profile.displayName}</h1>
+      <p className={["mt-5 max-w-xl break-words leading-7", size.bio, fontClasses[config.profile.bioFont ?? config.theme.font], bioTreatmentClass(config.profile.bioTreatment)].join(" ")}>{config.profile.bio}</p>
     </div>
   );
+}
+
+function titleTreatmentClass(treatment: PageConfig["profile"]["titleTreatment"] = "normal") {
+  if (treatment === "wide") return "tracking-[0.12em] uppercase";
+  if (treatment === "tight") return "tracking-[-0.12em] scale-x-95 origin-left";
+  if (treatment === "gradient") return "bg-gradient-to-r from-current via-white to-current bg-clip-text text-transparent drop-shadow";
+  if (treatment === "outline") return "text-transparent [-webkit-text-stroke:1px_currentColor]";
+  return "";
+}
+
+function bioTreatmentClass(treatment: PageConfig["profile"]["bioTreatment"] = "normal") {
+  if (treatment === "muted") return "opacity-60";
+  if (treatment === "card") return "rounded-2xl border border-white/15 bg-white/10 px-4 py-3 opacity-90 backdrop-blur";
+  if (treatment === "caps") return "text-xs font-bold uppercase tracking-[0.25em] opacity-75";
+  return "opacity-80";
 }
 
 function getFeaturedClass(config: PageConfig) {

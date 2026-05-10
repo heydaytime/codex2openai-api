@@ -6,6 +6,7 @@ import {
   textPresets,
   fontPresets,
   layoutPresets,
+  paddingPresets,
   spacingPresets,
   alignmentPresets,
   widthPresets,
@@ -18,6 +19,8 @@ import {
   featuredStyles,
   sceneElementKinds,
   sceneEasings,
+  titleTreatments,
+  bioTreatments,
 } from "./page-config";
 import { presetTools } from "./preset-tools";
 
@@ -93,6 +96,7 @@ export const toolCatalog: ToolDefinition[] = [
     args: [
       { name: "preset", type: "enum", required: false, description: "Layout template", values: layoutPresets as unknown as string[] },
       { name: "spacing", type: "enum", required: false, description: "Vertical gap between links", values: spacingPresets as unknown as string[] },
+      { name: "padding", type: "enum", required: false, description: "Outer page padding", values: paddingPresets as unknown as string[] },
       { name: "alignment", type: "enum", required: false, description: "Content alignment", values: alignmentPresets as unknown as string[] },
       { name: "width", type: "enum", required: false, description: "Max content width", values: widthPresets as unknown as string[] },
     ],
@@ -105,6 +109,10 @@ export const toolCatalog: ToolDefinition[] = [
       { name: "bio", type: "string", required: false, description: "New bio text (max 240 chars)" },
       { name: "avatarStyle", type: "enum", required: false, description: "Avatar display style", values: avatarStyles as unknown as string[] },
       { name: "profileSize", type: "enum", required: false, description: "Profile section size", values: sizePresets as unknown as string[] },
+      { name: "titleFont", type: "enum", required: false, description: "Display/title font", values: fontPresets as unknown as string[] },
+      { name: "bioFont", type: "enum", required: false, description: "Bio/description font", values: fontPresets as unknown as string[] },
+      { name: "titleTreatment", type: "enum", required: false, description: "Title styling treatment", values: titleTreatments as unknown as string[] },
+      { name: "bioTreatment", type: "enum", required: false, description: "Bio styling treatment", values: bioTreatments as unknown as string[] },
     ],
   },
   {
@@ -117,6 +125,20 @@ export const toolCatalog: ToolDefinition[] = [
       { name: "size", type: "enum", required: false, description: "Button size", values: sizePresets as unknown as string[] },
       { name: "shadow", type: "enum", required: false, description: "Drop shadow / glow effect", values: shadowPresets as unknown as string[] },
       { name: "animation", type: "enum", required: false, description: "Hover/featured animation", values: animationPresets as unknown as string[] },
+    ],
+  },
+  {
+    name: "change_individual_link_style",
+    description: "Override shape, fill, size, shadow, animation, or font for one existing link without changing every link.",
+    category: "visual",
+    args: [
+      { name: "id", type: "string", required: true, description: "ID of an existing link" },
+      { name: "shape", type: "enum", required: false, description: "Button corner style", values: linkShapes as unknown as string[] },
+      { name: "fill", type: "enum", required: false, description: "Button fill treatment", values: linkFills as unknown as string[] },
+      { name: "size", type: "enum", required: false, description: "Button size", values: sizePresets as unknown as string[] },
+      { name: "shadow", type: "enum", required: false, description: "Drop shadow / glow effect", values: shadowPresets as unknown as string[] },
+      { name: "animation", type: "enum", required: false, description: "Hover/featured animation", values: animationPresets as unknown as string[] },
+      { name: "font", type: "enum", required: false, description: "Font just for this link", values: fontPresets as unknown as string[] },
     ],
   },
   {
@@ -142,6 +164,14 @@ export const toolCatalog: ToolDefinition[] = [
     description: "Reset all visual properties (theme, layout, link style, creative layer, emphasis) back to clean defaults. User data (links, bio, name) is preserved.",
     category: "control",
     args: [],
+  },
+  {
+    name: "reorder_links",
+    description: "Move existing links into a new order. Omitted links stay after the provided ordered IDs.",
+    category: "content",
+    args: [
+      { name: "order", type: "array", required: true, description: "Existing link IDs in the desired order" },
+    ],
   },
   {
     name: "validate_result",

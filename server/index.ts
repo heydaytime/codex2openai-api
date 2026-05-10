@@ -8,6 +8,7 @@ import {
   alignmentPresets,
   animationPresets,
   avatarStyles,
+  bioTreatments,
   backgroundPresets,
   featuredStyles,
   fontPresets,
@@ -15,6 +16,7 @@ import {
   linkFills,
   linkShapes,
   moods,
+  paddingPresets,
   shadowPresets,
   sizePresets,
   spacingPresets,
@@ -22,8 +24,10 @@ import {
   sceneElementKinds,
   surfacePresets,
   textPresets,
+  titleTreatments,
   widthPresets,
   type AiEditResponse,
+  type AiToolCall,
   type PageConfig
 } from "../src/lib/page-config";
 import { presetTools, type PresetSearchResult } from "../src/lib/preset-tools";
@@ -39,7 +43,7 @@ const OLLAMA_EMBED_MODEL = process.env.OLLAMA_EMBED_MODEL ?? "nomic-embed-text";
 const CORS_ORIGIN = process.env.CORS_ORIGIN ?? "http://localhost:3000";
 const OLLAMA_TIMEOUT_MS = Number(process.env.OLLAMA_TIMEOUT_MS ?? 30_000);
 const MAX_AI_REQUESTS = 2;
-const MAX_EXECUTION_ATTEMPTS = integerEnv("MAX_EXECUTION_ATTEMPTS", 2, 1, 4);
+const MAX_EXECUTION_ATTEMPTS = integerEnv("MAX_EXECUTION_ATTEMPTS", 1, 1, 4);
 const MAX_FUZZ_ATTEMPTS = integerEnv("MAX_FUZZ_ATTEMPTS", 1, 1, 3);
 const OLLAMA_MAX_RETRIES = integerEnv("OLLAMA_MAX_RETRIES", 1, 1, 3);
 const OLLAMA_NUM_PREDICT = integerEnv("OLLAMA_NUM_PREDICT", 1024, 256, 4096);
@@ -256,6 +260,8 @@ function buildFastEdit(prompt: string, config: PageConfig): AiEditResponse | nul
 
   if (targetLink && wantsPop) {
     tool_calls.push({ tool: "feature_link", args: { id: targetLink.id, style: "glow" } });
+    tool_calls.push({ tool: "change_individual_link_style", args: { id: targetLink.id, size: "lg", shadow: "glow", animation: "pulse-featured", font: "bold" } });
+    tool_calls.push({ tool: "reorder_links", args: { order: [targetLink.id] } });
   }
 
   tool_calls.push({
@@ -293,18 +299,75 @@ function describePlannedTool(toolCall: AiEditResponse["tool_calls"][number]) {
     case "change_layout":
       return `Change layout: ${Object.entries(toolCall.args).map(([key, value]) => `${key}=${value}`).join(", ")}.`;
     case "change_profile":
-      return "Update profile fields.";
+      return `Update profile: ${Object.entries(toolCall.args).map(([key, value]) => `${key}=${value}`).join(", ")}.`;
     case "change_link_appearance":
       return `Change link style: ${Object.entries(toolCall.args).map(([key, value]) => `${key}=${value}`).join(", ")}.`;
+    case "change_individual_link_style":
+      return `Change one link style: ${Object.entries(toolCall.args).map(([key, value]) => `${key}=${value}`).join(", ")}.`;
     case "change_creative_layer":
       return `${toolCall.args.enabled ? "Enable" : "Disable"} creative layer with ${toolCall.args.elements.length} elements.`;
     case "feature_link":
       return `Feature link ${toolCall.args.id}${toolCall.args.style ? ` with ${toolCall.args.style}` : ""}.`;
+    case "reorder_links":
+      return `Reorder links: ${toolCall.args.order.join(", ")}.`;
     case "reset_page":
       return "Reset visual settings to defaults.";
     case "validate_result":
       return `Validate: ${toolCall.args.checklist.join("; ")}`;
   }
+}
+
+function buildPresetFallbackEdit(prompt: string, config: PageConfig, presetResults: PresetSearchResult[]): AiEditResponse {
+  const lower = prompt.toLowerCase();
+  const toolCalls: AiToolCall[] = [];
+
+  for (const preset of presetResults.slice(0, 2)) {
+    toolCalls.push({ tool: "apply_preset", args: { id: preset.id } });
+  }
+
+  const targetLink = findMentionedLink(lower, config);
+  const wantsPop = /\b(pop|stand\s*out|highlight|feature|featured|glow|bigger|larger|promote|push|sell|buy|book|ticket|subscribe|join)\b/.test(lower);
+  if (targetLink && wantsPop) {
+    toolCalls.push(
+      { tool: "feature_link", args: { id: targetLink.id, style: "glow" } },
+      { tool: "change_individual_link_style", args: { id: targetLink.id, size: "lg", shadow: "glow", animation: "pulse-featured", font: "bold" } },
+      { tool: "reorder_links", args: { order: [targetLink.id] } }
+    );
+  }
+
+  if (/\b(title|heading|name)\b.*\b(stylish|stretch|wide|poster|banner|bold|dramatic)\b|\b(stylish|stretch|wide|poster|banner|bold|dramatic)\b.*\b(title|heading|name)\b/.test(lower)) {
+    toolCalls.push({ tool: "change_profile", args: { titleFont: "display", titleTreatment: "wide" } });
+  }
+
+  if (/\b(description|bio)\b.*\b(card|box|highlight|stylish|serif|editorial)\b/.test(lower)) {
+    toolCalls.push({ tool: "change_profile", args: { bioFont: "serif", bioTreatment: "card" } });
+  }
+
+  if (/\b(compact|tighter|less padding|fit more|smaller)\b/.test(lower)) {
+    toolCalls.push({ tool: "change_layout", args: { spacing: "tight", padding: "compact" } });
+  } else if (/\b(spacious|more padding|roomy|breathing room|airy)\b/.test(lower)) {
+    toolCalls.push({ tool: "change_layout", args: { spacing: "airy", padding: "roomy" } });
+  }
+
+  if (/\b(left align|align left|left-aligned)\b/.test(lower)) {
+    toolCalls.push({ tool: "change_layout", args: { alignment: "left" } });
+  } else if (/\b(center|centered|align center)\b/.test(lower)) {
+    toolCalls.push({ tool: "change_layout", args: { alignment: "center" } });
+  }
+
+  if (toolCalls.length === 0) {
+    toolCalls.push({ tool: "change_theme", args: { mood: "clean", accent: "blue", surface: "paper", text: "dark" } });
+  }
+
+  toolCalls.push({
+    tool: "validate_result",
+    args: { checklist: ["Used deterministic fallback after model failure", "Applied best fuzzy preset matches", "Kept user links and URLs intact"] }
+  });
+
+  return {
+    message: "The model failed to return valid JSON, so I applied the best fuzzy preset matches directly.",
+    tool_calls: dedupeToolCalls(toolCalls)
+  };
 }
 
 function isModelGenerationFailure(error: unknown) {
@@ -367,7 +430,16 @@ async function runAiToolLoop(
 
   log("info", "Running execution (pass 2)", { reqId });
   emit?.({ type: "status", label: "Planning tool calls", detail: "Asking the model for safe page-edit operations." });
-  const execution = await getValidatedAiEditWithRetry(prompt, config, chatHistory, presetResults, emit);
+  const execution = await getValidatedAiEditWithRetry(prompt, config, chatHistory, presetResults, emit).catch((error) => {
+    const message = error instanceof Error ? error.message : String(error);
+    log("warn", "Model execution failed; using deterministic preset fallback", { reqId, error: message });
+    emit?.({
+      type: "decision",
+      label: "Using preset fallback",
+      detail: "The local model failed to return valid tool JSON, so the server is applying the best fuzzy presets directly."
+    });
+    return { response: buildPresetFallbackEdit(prompt, config, presetResults), retries: MAX_EXECUTION_ATTEMPTS };
+  });
   const response = execution.response;
   for (const toolCall of response.tool_calls) {
     emit?.({ type: "tool", label: toolCall.tool, detail: describePlannedTool(toolCall), data: toolCall });
@@ -699,11 +771,13 @@ ${presetResults.length > 0 ? "- apply_preset id=one of the preset ids listed abo
 - change_background preset=${JSON.stringify(backgroundPresets.filter((p) => p !== "custom"))} OR css={backgroundColor?,backgroundImage?,backgroundSize?,backgroundPosition?,backgroundRepeat?}. CSS is scoped to background only. backgroundImage must be a CSS gradient or none. No URLs.
 - change_theme optional mood=${JSON.stringify(moods)}, accent=${JSON.stringify(accentPresets)}, surface=${JSON.stringify(surfacePresets)}, text=${JSON.stringify(textPresets)}
 - change_typography optional font=${JSON.stringify(fontPresets)}, text=${JSON.stringify(textPresets)}, textColor=hex/rgb/rgba/hsl/hsla color. This only changes text/font styling.
-- change_layout optional preset=${JSON.stringify(layoutPresets)}, spacing=${JSON.stringify(spacingPresets)}, alignment=${JSON.stringify(alignmentPresets)}, width=${JSON.stringify(widthPresets)}
-- change_profile optional bio=string under 240 chars, avatarStyle=${JSON.stringify(avatarStyles)}, profileSize=${JSON.stringify(sizePresets)}
+- change_layout optional preset=${JSON.stringify(layoutPresets)}, spacing=${JSON.stringify(spacingPresets)}, padding=${JSON.stringify(paddingPresets)}, alignment=${JSON.stringify(alignmentPresets)}, width=${JSON.stringify(widthPresets)}
+- change_profile optional bio=string under 240 chars, avatarStyle=${JSON.stringify(avatarStyles)}, profileSize=${JSON.stringify(sizePresets)}, titleFont=${JSON.stringify(fontPresets)}, bioFont=${JSON.stringify(fontPresets)}, titleTreatment=${JSON.stringify(titleTreatments)}, bioTreatment=${JSON.stringify(bioTreatments)}
 - change_link_appearance optional shape=${JSON.stringify(linkShapes)}, fill=${JSON.stringify(linkFills)}, size=${JSON.stringify(sizePresets)}, shadow=${JSON.stringify(shadowPresets)}, animation=${JSON.stringify(animationPresets)}
+- change_individual_link_style id=existing link id, optional shape=${JSON.stringify(linkShapes)}, fill=${JSON.stringify(linkFills)}, size=${JSON.stringify(sizePresets)}, shadow=${JSON.stringify(shadowPresets)}, animation=${JSON.stringify(animationPresets)}, font=${JSON.stringify(fontPresets)}
 - change_creative_layer enabled=boolean, elements=array max 18. Each element has: id lowercase-dashed, kind=${JSON.stringify(sceneElementKinds)}, content optional text/emoji max 40, color/backgroundColor hex/rgb/hsl, left/top percent -30..130, width/height percent 1..80, opacity 0..1, blur 0..24, zIndex 0..20, optional animation={durationMs 250..30000, delayMs 0..10000, easing=${JSON.stringify(sceneEasings)}, loop boolean, alternate boolean, from/to transforms}. Transform fields: x/y -200..200, scale 0..5, rotate -1080..1080, opacity 0..1.
 - feature_link id=existing link id, style=${JSON.stringify(featuredStyles)}. Does NOT unfeature other links — multiple links can be featured.
+- reorder_links order=array of existing link ids. Put important links first; omitted links remain after the ordered IDs.
 - reset_page no args. Resets all visual properties (theme, layout, links style, creative layer, emphasis) to clean defaults. Preserves user data.
 - validate_result checklist=[strings]
 

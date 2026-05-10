@@ -25,7 +25,7 @@ const backgroundStyles = [
   ["forest-morning-fog", "Forest Morning Fog", "Creates a deep green forest gradient with misty light, grounded and organic without becoming dull. Useful for outdoor creators, sustainability, wellness, nature brands, coffee, and calm personal pages.", ["forest", "green", "nature", "wellness", "organic", "mist"], "#052e16", "radial-gradient(circle at 55% 0%, rgba(187,247,208,.28), transparent 30%), linear-gradient(180deg, #064e3b 0%, #052e16 58%, #020617 100%)", "warm", "green"],
   ["fire-neon-ember", "Fire Neon Ember", "Adds a dark ember background with orange and red neon heat around the edges. Strong for bold music pages, gyms, spicy launches, intense creators, nightlife, and high-energy brands.", ["fire", "ember", "orange", "red", "music", "bold"], "#120600", "radial-gradient(circle at 25% 80%, rgba(239,68,68,.75), transparent 30%), radial-gradient(circle at 75% 25%, rgba(249,115,22,.65), transparent 28%), linear-gradient(145deg, #120600 0%, #2b0505 55%, #020617 100%)", "dark", "orange"],
   ["soft-blue-recruiter", "Soft Blue Recruiter", "Applies a restrained soft-blue professional gradient that feels trustworthy and clear. Ideal for resumes, recruiter pages, consultants, engineers, students, and people who want clean credibility.", ["recruiter", "professional", "blue", "trust", "resume", "clean"], "#eff6ff", "linear-gradient(145deg, #eff6ff 0%, #dbeafe 52%, #ffffff 100%)", "minimal", "blue"],
-  ["cyber-grid-terminal", "Cyber Grid Terminal", "Switches to a dark cyber grid energy with cyan and fuchsia lighting, like a club terminal interface. Useful for techno, AI, hacker, cyberpunk, DJ, and futuristic prompts.", ["cyberpunk", "grid", "terminal", "hacker", "dj", "future"], "#030014", "linear-gradient(rgba(34,211,238,.14) 1px, transparent 1px), linear-gradient(90deg, rgba(217,70,239,.12) 1px, transparent 1px), radial-gradient(circle at 50% 0%, rgba(34,211,238,.28), transparent 32%), #030014", "cyberpunk", "cyan"],
+  ["cyber-grid-terminal", "Cyber Grid Terminal", "Switches to a dark cyber grid energy with cyan and fuchsia lighting, like a club terminal interface. Useful for techno, AI, hacker, cyberpunk, DJ, and futuristic prompts.", ["cyberpunk", "grid", "terminal", "hacker", "dj", "future"], "#030014", "linear-gradient(rgba(34,211,238,.14) 1px, transparent 1px), linear-gradient(90deg, rgba(217,70,239,.12) 1px, transparent 1px), radial-gradient(circle at 50% 0%, rgba(34,211,238,.28), transparent 32%)", "cyberpunk", "cyan"],
   ["white-minimal-gallery", "White Minimal Gallery", "Turns the page into a crisp white gallery wall with almost no visual noise. Best for luxury minimalists, architects, designers, photographers, portfolios, and professional pages that need restraint.", ["white", "minimal", "gallery", "portfolio", "designer", "clean"], "#ffffff", "linear-gradient(145deg, #ffffff 0%, #f8fafc 50%, #eef2ff 100%)", "minimal", "mono"],
   ["cosmic-ultraviolet", "Cosmic Ultraviolet", "Adds a rich ultraviolet cosmic field with a glowing center and deep-space edges. Great for mystical creators, astrology, music, art, gaming, and pages that should feel otherworldly.", ["cosmic", "ultraviolet", "space", "mystic", "artist", "glow"], "#120020", "radial-gradient(circle at 50% 35%, rgba(168,85,247,.72), transparent 30%), radial-gradient(circle at 72% 76%, rgba(14,165,233,.42), transparent 26%), linear-gradient(180deg, #120020 0%, #1e1b4b 55%, #020617 100%)", "cosmic", "purple"],
   ["retro-orange-computer", "Retro Orange Computer", "Creates a nostalgic orange-and-brown early-computer gradient with warm terminal charm. Works for retro apps, indie hackers, makers, vintage music, zines, and playful tech pages.", ["retro", "orange", "computer", "maker", "vintage", "indie"], "#2a1200", "radial-gradient(circle at 20% 15%, rgba(251,146,60,.62), transparent 31%), linear-gradient(135deg, #2a1200 0%, #78350f 50%, #111827 100%)", "warm", "orange"]
@@ -63,6 +63,158 @@ const linkLooks = [
   ["large-featured-cta-links", "Large Featured CTA Links", "Makes links larger with strong depth and motion so important calls-to-action feel obvious. Good for sales pages, launches, merch, tickets, and lead magnets.", ["links", "cta", "large", "sales", "launch", "standout"], "pill", "solid", "lg", "strong", "pulse-featured"],
   ["neon-outline-links", "Neon Outline Links", "Creates outlined links with glow and lift animation, matching cyberpunk, music, rave, gamer, and RGB prompts without needing custom CSS.", ["links", "neon", "outline", "glow", "music", "rgb"], "pill", "outline", "md", "glow", "lift"]
 ] as const;
+
+const outcomeKits: PresetTool[] = [
+  {
+    id: "sell-more-products-cta-kit",
+    title: "Sell More Products CTA Kit",
+    description: "Conversion-focused shop and merch styling with warm color, bigger tappable links, strong CTA depth, and friendly sales energy. Use for sell more, make merch pop, product drop, shop link, store, buy, and conversion prompts. Pair with feature_link or change_individual_link_style for the exact merch/shop link.",
+    tags: ["sales", "shop", "merch", "product", "cta", "conversion", "buy"],
+    operations: [
+      { tool: "change_background", args: { preset: "warm-gradient" } },
+      { tool: "change_theme", args: { mood: "warm", accent: "orange", surface: "paper", text: "dark" } },
+      { tool: "change_link_appearance", args: { shape: "pill", fill: "solid", size: "lg", shadow: "strong", animation: "pulse-featured" } },
+      { tool: "change_layout", args: { spacing: "normal", padding: "roomy", width: "medium" } }
+    ]
+  },
+  {
+    id: "booking-consultation-cta-kit",
+    title: "Booking Consultation CTA Kit",
+    description: "Trustworthy client-booking page styling for coaches, consultants, freelancers, agencies, calls, Calendly, and booking links. Makes the page credible, calm, and conversion-oriented. Pair with feature_link for booking or call links.",
+    tags: ["booking", "consultation", "clients", "call", "calendar", "trust", "professional"],
+    operations: [
+      { tool: "change_background", args: { preset: "soft-blue" } },
+      { tool: "change_theme", args: { mood: "minimal", accent: "blue", surface: "paper", text: "dark" } },
+      { tool: "change_typography", args: { font: "modern" } },
+      { tool: "change_link_appearance", args: { shape: "rounded", fill: "soft", size: "lg", shadow: "soft", animation: "lift" } },
+      { tool: "change_layout", args: { spacing: "airy", padding: "roomy", width: "medium" } }
+    ]
+  },
+  {
+    id: "newsletter-signup-cta-kit",
+    title: "Newsletter Signup CTA Kit",
+    description: "Editorial signup-focused layout for newsletters, essays, Substack, writing, email list growth, and thought leadership. Warm paper styling with elegant title and readable description.",
+    tags: ["newsletter", "substack", "email", "signup", "writer", "essays", "list"],
+    operations: [
+      { tool: "change_background", args: { preset: "cream" } },
+      { tool: "change_theme", args: { mood: "clean", accent: "gold", surface: "paper", text: "dark" } },
+      { tool: "change_profile", args: { titleFont: "elegant", bioFont: "serif", titleTreatment: "tight", bioTreatment: "card" } },
+      { tool: "change_link_appearance", args: { shape: "rounded", fill: "soft", size: "md", shadow: "soft", animation: "lift" } }
+    ]
+  },
+  {
+    id: "drive-music-streams-kit",
+    title: "Drive Music Streams Kit",
+    description: "Music streaming conversion kit for Spotify, Apple Music, SoundCloud, release, album, DJ, producer, and artist pages. Neon glow plus music motion to push listening links.",
+    tags: ["music", "spotify", "stream", "release", "album", "artist", "producer", "dj"],
+    operations: [
+      { tool: "change_background", args: { preset: "cyber-grid" } },
+      { tool: "change_theme", args: { mood: "cyberpunk", accent: "cyan", surface: "glow-card", text: "light" } },
+      { tool: "change_typography", args: { font: "tech" } },
+      { tool: "change_link_appearance", args: { shape: "pill", fill: "glass", size: "lg", shadow: "glow", animation: "pulse-featured" } }
+    ]
+  },
+  {
+    id: "grow-community-kit",
+    title: "Grow Community Kit",
+    description: "Community growth kit for Discord, Patreon, memberships, fan clubs, group chats, waitlists, and join prompts. Friendly high-contrast styling with playful but readable energy.",
+    tags: ["community", "discord", "patreon", "membership", "fans", "join", "waitlist"],
+    operations: [
+      { tool: "change_background", args: { preset: "purple-radial" } },
+      { tool: "change_theme", args: { mood: "cosmic", accent: "purple", surface: "glass", text: "light" } },
+      { tool: "change_profile", args: { titleFont: "display", bioFont: "rounded", titleTreatment: "wide" } },
+      { tool: "change_link_appearance", args: { shape: "pill", fill: "glass", size: "md", shadow: "glow", animation: "lift" } }
+    ]
+  }
+];
+
+const repairAndLayoutKits: PresetTool[] = [
+  {
+    id: "tone-down-clean-readable-kit",
+    title: "Tone Down Clean Readable Kit",
+    description: "Calms down a page that is too busy, too flashy, too neon, too childish, unreadable, or overwhelming. Removes heavy visual energy and restores clean professional readability.",
+    tags: ["tone down", "less flashy", "clean", "readable", "professional", "remove glow", "calm"],
+    operations: [
+      { tool: "change_background", args: { preset: "white" } },
+      { tool: "change_theme", args: { mood: "minimal", accent: "blue", surface: "paper", text: "dark" } },
+      { tool: "change_typography", args: { font: "modern", text: "dark" } },
+      { tool: "change_link_appearance", args: { shape: "rounded", fill: "soft", size: "md", shadow: "soft", animation: "lift" } },
+      { tool: "change_creative_layer", args: { enabled: false, elements: [] } }
+    ]
+  },
+  {
+    id: "compact-mobile-link-list-kit",
+    title: "Compact Mobile Link List Kit",
+    description: "Makes the page tighter and more mobile-friendly with compact spacing, compact padding, smaller links, and a utility link-list feel. Use for too tall, fit more links, compact, dense, dashboard, or mobile prompts.",
+    tags: ["compact", "mobile", "tight", "small", "dense", "utility", "fit"],
+    operations: [
+      { tool: "change_layout", args: { preset: "compact", spacing: "tight", padding: "compact", width: "narrow" } },
+      { tool: "change_link_appearance", args: { shape: "rounded", fill: "outline", size: "sm", shadow: "none", animation: "none" } },
+      { tool: "change_profile", args: { profileSize: "sm", bioTreatment: "muted" } }
+    ]
+  },
+  {
+    id: "wide-landing-page-kit",
+    title: "Wide Landing Page Kit",
+    description: "Turns the page into a wider landing-page style with more horizontal breathing room, split hero layout, roomy padding, and larger profile presence. Use for landing page, website, hero, wider, or premium homepage prompts.",
+    tags: ["landing", "wide", "hero", "website", "homepage", "premium", "spacious"],
+    operations: [
+      { tool: "change_layout", args: { preset: "split-hero", spacing: "airy", padding: "roomy", width: "wide" } },
+      { tool: "change_profile", args: { profileSize: "lg", titleFont: "display", titleTreatment: "tight" } },
+      { tool: "change_link_appearance", args: { shape: "rounded", fill: "glass", size: "lg", shadow: "soft", animation: "lift" } }
+    ]
+  },
+  {
+    id: "poster-title-stretch-kit",
+    title: "Poster Title Stretch Kit",
+    description: "Makes the title more stylish like a poster: stretched wide lettering, strong display font, bold banner layout, and punchy links. Good for make title stylish, stretch title, poster, banner, or dramatic heading prompts.",
+    tags: ["title", "stretch", "poster", "banner", "heading", "stylish", "display"],
+    operations: [
+      { tool: "change_layout", args: { preset: "bold-banner", spacing: "normal", padding: "roomy", width: "wide" } },
+      { tool: "change_profile", args: { titleFont: "display", bioFont: "modern", titleTreatment: "wide", bioTreatment: "caps" } },
+      { tool: "change_link_appearance", args: { shape: "square", fill: "solid", size: "md", shadow: "strong", animation: "lift" } }
+    ]
+  }
+];
+
+const platformKits: PresetTool[] = [
+  {
+    id: "youtube-creator-kit",
+    title: "YouTube Creator Kit",
+    description: "Bold red-and-dark creator kit for YouTube channels, latest video, subscribe, vlog, podcast clips, and video creators. Makes video links feel obvious and energetic.",
+    tags: ["youtube", "video", "subscribe", "creator", "vlog", "latest video", "clips"],
+    operations: [
+      { tool: "change_background", args: { preset: "black" } },
+      { tool: "change_theme", args: { mood: "dark", accent: "red", surface: "ink", text: "light" } },
+      { tool: "change_profile", args: { titleFont: "bold", titleTreatment: "tight" } },
+      { tool: "change_link_appearance", args: { shape: "rounded", fill: "solid", size: "lg", shadow: "strong", animation: "pulse-featured" } }
+    ]
+  },
+  {
+    id: "tiktok-lifestyle-pop-kit",
+    title: "TikTok Lifestyle Pop Kit",
+    description: "Bright social creator kit for TikTok, Instagram, beauty, lifestyle, creator storefronts, and playful personal brands. Pink pop, rounded fonts, and highly tappable buttons.",
+    tags: ["tiktok", "instagram", "lifestyle", "beauty", "creator", "pink", "social"],
+    operations: [
+      { tool: "change_background", args: { preset: "pink-pop" } },
+      { tool: "change_theme", args: { mood: "playful", accent: "fuchsia", surface: "glass", text: "light" } },
+      { tool: "change_profile", args: { titleFont: "rounded", bioFont: "rounded", titleTreatment: "normal" } },
+      { tool: "change_link_appearance", args: { shape: "pill", fill: "glass", size: "md", shadow: "glow", animation: "lift" } }
+    ]
+  },
+  {
+    id: "event-ticket-kit",
+    title: "Event Ticket Kit",
+    description: "High-energy event and ticket sales kit for shows, concerts, webinars, parties, popups, RSVP, and get tickets prompts. Prioritizes large CTA links and celebratory styling.",
+    tags: ["event", "tickets", "concert", "show", "rsvp", "webinar", "party"],
+    operations: [
+      { tool: "change_background", args: { preset: "sunset-glow" } },
+      { tool: "change_theme", args: { mood: "playful", accent: "orange", surface: "glass", text: "dark" } },
+      { tool: "change_link_appearance", args: { shape: "pill", fill: "solid", size: "lg", shadow: "strong", animation: "pulse-featured" } },
+      { tool: "change_layout", args: { spacing: "airy", padding: "roomy" } }
+    ]
+  }
+];
 
 function backgroundPreset([id, title, description, tags, backgroundColor, backgroundImage, mood, accent]: (typeof backgroundStyles)[number]): PresetTool {
   return {
@@ -120,7 +272,8 @@ function fullKitPreset([id, title, description, tags, background, mood, accent, 
       { tool: "change_background", args: { preset: background } },
       { tool: "change_theme", args: { mood, accent, surface: fill === "soft" ? "paper" : "glass", text: background === "white" || background === "cream" ? "dark" : "light" } },
       { tool: "change_typography", args: { font } },
-      { tool: "change_link_appearance", args: { shape: "rounded", fill, size: "md", shadow, animation: "lift" } }
+      { tool: "change_link_appearance", args: { shape: id === "minimal-resume-recruiter-kit" ? "pill" : "rounded", fill, size: id === "minimal-resume-recruiter-kit" ? "sm" : "md", shadow, animation: "lift" } },
+      ...(id === "minimal-resume-recruiter-kit" ? [{ tool: "change_layout", args: { preset: "compact", spacing: "tight", padding: "compact", width: "medium" } }] as AiToolCall[] : [])
     ] as AiToolCall[]
   };
 }
@@ -140,15 +293,16 @@ const generatedColorDicePresets: PresetTool[] = [
   ["maximum-color-pop", "Maximum Color Pop", "A loud color-pop treatment that makes the whole page feel brighter, more saturated, and more fun, while keeping the structure intact. Great for vague prompts like make it pop or add color.", ["pop", "color", "bright", "saturated", "fun", "loud"]],
   ["tasteful-rainbow-clean", "Tasteful Rainbow Clean", "Adds rainbow energy in a cleaner controlled way: colorful background glow, modern font, glass links, and readable high-contrast text. Good when the user wants colorful but not messy.", ["rainbow", "clean", "tasteful", "colorful", "modern", "readable"]],
   ["rgb-gamer-mode", "RGB Gamer Mode", "Switches into RGB gamer lighting with a dark base, cyan and magenta accents, glowing links, and energetic visual contrast. Strong for gaming, streamers, esports, and neon requests.", ["rgb", "gamer", "streamer", "esports", "neon", "dark"]]
-  ].map(([id, title, description, tags]) => ({
+  ].map(([id, title, description, tags], index) => ({
   id: id as string,
   title: title as string,
   description: description as string,
   tags: tags as string[],
   operations: [
     { tool: "change_background", args: { css: { backgroundColor: "#070012", backgroundImage: "radial-gradient(circle at 15% 20%, rgba(255,0,102,.9), transparent 30%), radial-gradient(circle at 80% 18%, rgba(0,255,204,.85), transparent 28%), radial-gradient(circle at 60% 85%, rgba(59,130,246,.85), transparent 32%), linear-gradient(135deg, #070012 0%, #18002f 48%, #001f2e 100%)", backgroundSize: "cover", backgroundPosition: "center", backgroundRepeat: "no-repeat" } } },
-    { tool: "change_theme", args: { mood: "cyberpunk", accent: "cyan", surface: "glow-card", text: "light" } },
-    { tool: "change_link_appearance", args: { shape: "pill", fill: "glass", size: "lg", shadow: "glow", animation: "lift" } }
+    { tool: "change_theme", args: { mood: index === 2 ? "playful" : "cyberpunk", accent: index === 1 ? "fuchsia" : index === 2 ? "orange" : "cyan", surface: index === 2 ? "glass" : "glow-card", text: "light" } },
+    { tool: "change_profile", args: { titleFont: index === 0 ? "display" : index === 1 ? "bold" : index === 2 ? "rounded" : "tech", titleTreatment: index === 0 ? "wide" : index === 2 ? "normal" : "tight" } },
+    { tool: "change_link_appearance", args: { shape: "pill", fill: index === 2 ? "soft" : "glass", size: index === 2 ? "md" : "lg", shadow: "glow", animation: index === 1 ? "pulse-featured" : "lift" } }
   ] as AiToolCall[]
 }));
 
@@ -157,6 +311,9 @@ export const presetTools: PresetTool[] = [
   ...sceneStyles.map(scenePreset),
   ...fullKits.map(fullKitPreset),
   ...linkLooks.map(linkPreset),
+  ...outcomeKits,
+  ...repairAndLayoutKits,
+  ...platformKits,
   ...generatedColorDicePresets,
   ...expandVariants()
 ];
@@ -189,10 +346,38 @@ function expandVariants(): PresetTool[] {
         { tool: "change_background", args: { preset: background } },
         { tool: "change_theme", args: { mood, accent, surface: fill === "glass" ? "glass" : "paper", text: background === "white" || background === "soft-blue" ? "dark" : "light" } },
         { tool: "change_typography", args: { font } },
-        { tool: "change_link_appearance", args: { shape, fill, size: intent === "event" || intent === "drop" ? "lg" : "md", shadow, animation: "lift" } }
+        { tool: "change_link_appearance", args: { shape, fill, size: intent === "event" || intent === "drop" || intent === "shop" ? "lg" : "md", shadow, animation: intent === "event" || intent === "drop" ? "pulse-featured" : "lift" } },
+        ...intentTweaks(intent)
       ] as AiToolCall[]
     }))
   );
+}
+
+function intentTweaks(intent: string): AiToolCall[] {
+  const map: Record<string, AiToolCall[]> = {
+    creator: [{ tool: "change_profile", args: { titleFont: "display", bioFont: "rounded", titleTreatment: "normal" } }],
+    founder: [{ tool: "change_layout", args: { spacing: "airy", padding: "roomy", width: "medium" } }, { tool: "change_profile", args: { titleFont: "modern", bioTreatment: "card" } }],
+    musician: [{ tool: "change_profile", args: { titleFont: "tech", titleTreatment: "wide" } }],
+    coach: [{ tool: "change_profile", args: { titleFont: "rounded", bioFont: "rounded", bioTreatment: "card" } }],
+    designer: [{ tool: "change_layout", args: { preset: "poster-card", padding: "roomy", width: "wide" } }, { tool: "change_profile", args: { titleFont: "elegant", titleTreatment: "tight" } }],
+    developer: [{ tool: "change_profile", args: { titleFont: "tech", bioFont: "mono" } }],
+    shop: [{ tool: "change_layout", args: { spacing: "normal", padding: "roomy" } }, { tool: "change_profile", args: { titleFont: "bold", bioTreatment: "caps" } }],
+    portfolio: [{ tool: "change_layout", args: { preset: "split-hero", width: "wide", padding: "roomy" } }],
+    newsletter: [{ tool: "change_profile", args: { titleFont: "elegant", bioFont: "serif", bioTreatment: "card" } }],
+    community: [{ tool: "change_profile", args: { titleFont: "rounded", titleTreatment: "wide" } }],
+    event: [{ tool: "change_layout", args: { spacing: "airy", padding: "roomy" } }, { tool: "change_profile", args: { titleFont: "display", titleTreatment: "wide" } }],
+    drop: [{ tool: "change_layout", args: { preset: "bold-banner", padding: "roomy" } }, { tool: "change_profile", args: { titleFont: "bold", titleTreatment: "gradient" } }],
+    podcast: [{ tool: "change_profile", args: { titleFont: "condensed", bioFont: "modern", titleTreatment: "tight" } }],
+    photographer: [{ tool: "change_layout", args: { preset: "poster-card", spacing: "airy", width: "wide" } }, { tool: "change_profile", args: { titleFont: "serif", bioTreatment: "muted" } }],
+    fitness: [{ tool: "change_profile", args: { titleFont: "condensed", titleTreatment: "wide", bioTreatment: "caps" } }],
+    foodie: [{ tool: "change_profile", args: { titleFont: "handwritten", bioFont: "serif" } }],
+    travel: [{ tool: "change_layout", args: { spacing: "airy", padding: "roomy", width: "wide" } }, { tool: "change_profile", args: { titleFont: "elegant", bioTreatment: "muted" } }],
+    student: [{ tool: "change_layout", args: { preset: "compact", spacing: "tight", padding: "compact" } }, { tool: "change_profile", args: { profileSize: "sm", titleFont: "modern" } }],
+    consultant: [{ tool: "change_profile", args: { titleFont: "modern", bioTreatment: "card" } }, { tool: "change_layout", args: { spacing: "airy", padding: "roomy" } }],
+    artist: [{ tool: "change_profile", args: { titleFont: "display", titleTreatment: "outline", bioFont: "handwritten" } }]
+  };
+
+  return map[intent] ?? [];
 }
 
 function titleCase(value: string) {

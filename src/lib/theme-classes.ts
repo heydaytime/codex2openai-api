@@ -39,7 +39,13 @@ export const fontClasses: Record<PageConfig["theme"]["font"], string> = {
   editorial: "font-serif tracking-tight",
   mono: "font-mono tracking-tight",
   rounded: "font-sans tracking-normal",
-  bold: "font-sans tracking-tight"
+  bold: "font-sans tracking-tight",
+  display: "font-sans tracking-[-0.06em]",
+  serif: "font-serif tracking-normal",
+  condensed: "font-sans tracking-[-0.08em] [font-stretch:condensed]",
+  handwritten: "font-serif italic tracking-wide",
+  tech: "font-mono tracking-[-0.04em]",
+  elegant: "font-serif tracking-[-0.03em]"
 };
 
 export const surfaceClasses: Record<PageConfig["theme"]["surface"], string> = {
@@ -60,6 +66,13 @@ export const spacingClasses: Record<PageConfig["layout"]["spacing"], string> = {
   tight: "gap-2",
   normal: "gap-3",
   airy: "gap-5"
+};
+
+export const paddingClasses: Record<NonNullable<PageConfig["layout"]["padding"]>, string> = {
+  compact: "p-3 md:p-4",
+  normal: "p-5",
+  roomy: "p-7 md:p-9",
+  flush: "p-0"
 };
 
 export const profileSizeClasses: Record<PageConfig["profile"]["profileSize"], { avatar: string; title: string; bio: string }> = {

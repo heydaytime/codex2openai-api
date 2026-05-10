@@ -75,7 +75,7 @@ function applyOne(config: PageConfig, toolCall: AiToolCall): PageConfig {
       next.linkStyle = { ...defaultVisualConfig.linkStyle };
       next.emphasis = { featuredLinkId: undefined, ...defaultVisualConfig.emphasis };
       next.creativeLayer = { enabled: false, elements: [] };
-      next.links = next.links.map((link) => ({ ...link, featured: false }));
+      next.links = next.links.map((link) => ({ ...link, featured: false, style: undefined }));
       break;
     case "change_background":
       if (toolCall.args.css) {
@@ -101,6 +101,14 @@ function applyOne(config: PageConfig, toolCall: AiToolCall): PageConfig {
     case "change_link_appearance":
       next.linkStyle = { ...next.linkStyle, ...toolCall.args };
       break;
+    case "change_individual_link_style":
+      ensureLinkExists(next, toolCall.args.id);
+      next.links = next.links.map((link) =>
+        link.id === toolCall.args.id
+          ? { ...link, style: { ...link.style, ...withoutId(toolCall.args) } }
+          : link
+      );
+      break;
     case "change_creative_layer":
       next.creativeLayer = {
         enabled: toolCall.args.enabled,
@@ -115,11 +123,29 @@ function applyOne(config: PageConfig, toolCall: AiToolCall): PageConfig {
         link.id === toolCall.args.id ? { ...link, featured: true } : link
       );
       break;
+    case "reorder_links":
+      next.links = reorderLinks(next, toolCall.args.order);
+      break;
     default:
       toolCall satisfies never;
   }
 
   return PageConfigSchema.parse(next);
+}
+
+function withoutId<T extends { id: string }>(value: T) {
+  const { id: _id, ...rest } = value;
+  return rest;
+}
+
+function reorderLinks(config: PageConfig, order: string[]) {
+  const uniqueOrder = Array.from(new Set(order));
+  for (const id of uniqueOrder) ensureLinkExists(config, id);
+
+  const byId = new Map(config.links.map((link) => [link.id, link]));
+  const ordered = uniqueOrder.map((id) => byId.get(id)!);
+  const remaining = config.links.filter((link) => !uniqueOrder.includes(link.id));
+  return [...ordered, ...remaining];
 }
 
 function ensureLinkExists(config: PageConfig, id: string) {
