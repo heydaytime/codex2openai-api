@@ -3,12 +3,12 @@
 import { useCallback, useRef, useState } from "react";
 import { PagePreview } from "@/components/page-preview";
 import { ChatWindow } from "@/components/chat-window";
-import { ToolCatalogPanel } from "@/components/tool-catalog-panel";
-import { ConfigInspector } from "@/components/config-inspector";
+import { applyToolCalls } from "@/lib/apply-operations";
 import {
   linkKinds,
   samplePageConfig,
   type AiEditResponse,
+  type AiToolCall,
   type AppliedToolCall,
   type PageConfig,
 } from "@/lib/page-config";
@@ -29,8 +29,6 @@ type ApiResponse =
       error: string;
       details?: unknown;
     };
-
-type RightTab = "tools" | "config" | "links";
 
 const suggestions = [
   "Make this look like a clean founder page and rewrite the bio for investors.",
@@ -60,8 +58,6 @@ export function AiEditor() {
   const [newLinkKind, setNewLinkKind] =
     useState<PageConfig["links"][number]["kind"]>("website");
 
-  // Panels
-  const [rightTab, setRightTab] = useState<RightTab>("tools");
   const [showPreview, setShowPreview] = useState(true);
 
   const canUndo = historyIndex > 0;
@@ -123,10 +119,23 @@ export function AiEditor() {
   }
 
   function featureUserLink(id: string) {
-    pushConfig({
-      ...config,
-      links: config.links.map((l) => ({ ...l, featured: l.id === id })),
-    });
+    applyManualToolCalls([{ tool: "feature_link", args: { id, style: "glow" } }]);
+  }
+
+  function moveUserLink(id: string, direction: "up" | "down") {
+    const current = configRef.current;
+    const index = current.links.findIndex((link) => link.id === id);
+    const nextIndex = direction === "up" ? index - 1 : index + 1;
+    if (index < 0 || nextIndex < 0 || nextIndex >= current.links.length) return;
+
+    const ordered = [...current.links];
+    [ordered[index], ordered[nextIndex]] = [ordered[nextIndex], ordered[index]];
+    pushConfig({ ...current, links: ordered });
+  }
+
+  function applyManualToolCalls(toolCalls: AiToolCall[]) {
+    const applied = applyToolCalls(configRef.current, toolCalls, { source: "ai", pass: 0 });
+    pushConfig(applied.config);
   }
 
   function addChatMessage(msg: ChatMessage) {
@@ -210,6 +219,7 @@ export function AiEditor() {
           id: makeChatId(),
           content: `Error: ${error instanceof Error ? error.message : "Something went wrong."}`,
           timestamp: Date.now(),
+          retryPrompt: message,
         };
         addChatMessage(errMsg);
         liveActivityRef.current = [];
@@ -285,6 +295,7 @@ export function AiEditor() {
               isLoading={isLoading}
               liveActivity={liveActivity}
               messages={chatMessages}
+              onRetry={handleSend}
               onSend={handleSend}
               suggestions={suggestions}
             />
@@ -299,45 +310,18 @@ export function AiEditor() {
                 Live Preview
               </span>
             </div>
-            <div className="flex flex-1 items-center justify-center overflow-auto p-6">
-              <div className="w-full max-w-lg">
-                <PagePreview config={config} />
+            <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
+              <div className="flex min-h-0 flex-1 items-center justify-center overflow-auto p-6">
+                <div className="w-full max-w-lg">
+                  <PagePreview config={config} />
+                </div>
               </div>
-            </div>
-          </div>
-        )}
-
-        {/* Right panel — Tools / Config / Links */}
-        <div className="flex w-[340px] shrink-0 flex-col border-l border-white/[0.06] bg-[#08080d]">
-          <div className="flex shrink-0 border-b border-white/[0.06]">
-            {(["tools", "config", "links"] as const).map((tab) => (
-              <button
-                className={[
-                  "flex-1 py-2.5 text-center text-[11px] font-semibold uppercase tracking-[0.12em] transition",
-                  rightTab === tab
-                    ? "border-b-2 border-fuchsia-400 text-white"
-                    : "text-zinc-500 hover:text-zinc-300",
-                ].join(" ")}
-                key={tab}
-                onClick={() => setRightTab(tab)}
-                type="button"
-              >
-                {tab === "tools" ? "Tools" : tab === "config" ? "Config" : `Links (${config.links.length})`}
-              </button>
-            ))}
-          </div>
-          <div className="flex-1 overflow-y-auto">
-            {rightTab === "tools" && <ToolCatalogPanel />}
-            {rightTab === "config" && (
-              <div className="p-3">
-                <ConfigInspector config={config} />
-              </div>
-            )}
-            {rightTab === "links" && (
-              <LinkManager
+              <ManualControlDock
                 addUserLink={addUserLink}
+                applyManualToolCalls={applyManualToolCalls}
                 config={config}
                 featureUserLink={featureUserLink}
+                moveUserLink={moveUserLink}
                 newLinkKind={newLinkKind}
                 newLinkLabel={newLinkLabel}
                 newLinkUrl={newLinkUrl}
@@ -346,9 +330,9 @@ export function AiEditor() {
                 setNewLinkLabel={setNewLinkLabel}
                 setNewLinkUrl={setNewLinkUrl}
               />
-            )}
+            </div>
           </div>
-        </div>
+        )}
       </div>
     </main>
   );
@@ -388,7 +372,7 @@ async function readActivityStream(body: ReadableStream<Uint8Array>, onEvent: (ev
   return result;
 }
 
-function LinkManager({
+function ManualControlDock({
   config,
   newLinkLabel,
   newLinkUrl,
@@ -399,6 +383,8 @@ function LinkManager({
   addUserLink,
   removeUserLink,
   featureUserLink,
+  moveUserLink,
+  applyManualToolCalls,
 }: {
   config: PageConfig;
   newLinkLabel: string;
@@ -410,15 +396,80 @@ function LinkManager({
   addUserLink: () => void;
   removeUserLink: (id: string) => void;
   featureUserLink: (id: string) => void;
+  moveUserLink: (id: string, direction: "up" | "down") => void;
+  applyManualToolCalls: (toolCalls: AiToolCall[]) => void;
 }) {
+  const [selectedLinkId, setSelectedLinkId] = useState(config.links[0]?.id ?? "");
+  const targetLinkId = config.links.some((link) => link.id === selectedLinkId) ? selectedLinkId : config.links[0]?.id ?? "";
+
+  function withTarget(build: (id: string) => AiToolCall[]) {
+    if (!targetLinkId) return;
+    applyManualToolCalls(build(targetLinkId));
+  }
+
   return (
-    <div className="p-3">
-      <div className="mb-4">
-        <p className="text-xs font-semibold text-zinc-300">Add a link</p>
-        <p className="mt-1 text-[10px] text-zinc-500">
-          The AI cannot invent URLs. Add your links here, then ask the AI to style them.
-        </p>
-        <div className="mt-3 grid gap-2">
+    <div className="max-h-72 shrink-0 overflow-y-auto border-t border-white/[0.06] bg-[#08080d]/95 p-3 backdrop-blur">
+      <div className="mb-3 flex items-center justify-between gap-3">
+        <div>
+          <p className="text-xs font-bold uppercase tracking-[0.18em] text-zinc-300">Manual Controls</p>
+          <p className="mt-1 text-[10px] text-zinc-500">Move links and apply common edits without asking the AI.</p>
+        </div>
+        <select
+          className="max-w-44 rounded-lg border border-white/10 bg-black/40 px-2 py-1.5 text-xs text-zinc-200 outline-none"
+          onChange={(e) => setSelectedLinkId(e.target.value)}
+          value={targetLinkId}
+        >
+          {config.links.map((link) => (
+            <option key={link.id} value={link.id}>{link.label}</option>
+          ))}
+        </select>
+      </div>
+
+      <div className="grid gap-3 xl:grid-cols-[minmax(260px,0.9fr)_minmax(320px,1.1fr)_minmax(260px,0.9fr)]">
+        <div className="rounded-xl border border-white/[0.06] bg-white/[0.02] p-3">
+          <p className="mb-2 text-[11px] font-semibold uppercase tracking-[0.16em] text-zinc-500">Links</p>
+          <div className="space-y-1.5">
+            {config.links.map((link, index) => (
+              <div className="flex items-center gap-2 rounded-lg border border-white/[0.06] bg-black/20 px-2 py-1.5" key={link.id}>
+                <button
+                  className="min-w-0 flex-1 text-left"
+                  onClick={() => setSelectedLinkId(link.id)}
+                  type="button"
+                >
+                  <span className="block truncate text-xs font-semibold text-white">{link.label}</span>
+                  <span className="block truncate text-[9px] uppercase tracking-[0.12em] text-zinc-600">{link.kind} · {link.id}</span>
+                </button>
+                <button className="control-btn" disabled={index === 0} onClick={() => moveUserLink(link.id, "up")} type="button">Up</button>
+                <button className="control-btn" disabled={index === config.links.length - 1} onClick={() => moveUserLink(link.id, "down")} type="button">Down</button>
+                <button className="control-btn" onClick={() => featureUserLink(link.id)} type="button">Feature</button>
+                <button className="rounded-md border border-red-400/20 px-2 py-1 text-[10px] text-red-300/70 hover:bg-red-400/10" onClick={() => removeUserLink(link.id)} type="button">Remove</button>
+              </div>
+            ))}
+          </div>
+        </div>
+
+        <div className="rounded-xl border border-white/[0.06] bg-white/[0.02] p-3">
+          <p className="mb-2 text-[11px] font-semibold uppercase tracking-[0.16em] text-zinc-500">Quick Actions</p>
+          <div className="grid grid-cols-2 gap-2 md:grid-cols-3">
+            <button className="action-btn" onClick={() => withTarget((id) => [{ tool: "feature_link", args: { id, style: "glow" } }, { tool: "change_individual_link_style", args: { id, size: "lg", shadow: "glow", animation: "pulse-featured", font: "bold" } }, { tool: "reorder_links", args: { order: [id] } }])} type="button">Make selected pop</button>
+            <button className="action-btn" onClick={() => withTarget((id) => [{ tool: "reorder_links", args: { order: [id] } }])} type="button">Move selected first</button>
+            <button className="action-btn" onClick={() => applyManualToolCalls([{ tool: "change_background", args: { preset: "warm-gradient" } }, { tool: "change_theme", args: { mood: "warm", accent: "orange", surface: "paper", text: "dark" } }])} type="button">Warmer style</button>
+            <button className="action-btn" onClick={() => applyManualToolCalls([{ tool: "change_background", args: { preset: "white" } }, { tool: "change_theme", args: { mood: "minimal", accent: "blue", surface: "paper", text: "dark" } }, { tool: "change_creative_layer", args: { enabled: false, elements: [] } }])} type="button">Clean it up</button>
+            <button className="action-btn" onClick={() => applyManualToolCalls([{ tool: "change_layout", args: { preset: "compact", spacing: "tight", padding: "compact", width: "narrow" } }, { tool: "change_link_appearance", args: { size: "sm", shadow: "none", animation: "none" } }])} type="button">Compact</button>
+            <button className="action-btn" onClick={() => applyManualToolCalls([{ tool: "change_layout", args: { spacing: "airy", padding: "roomy", width: "wide" } }])} type="button">More space</button>
+            <button className="action-btn" onClick={() => applyManualToolCalls([{ tool: "change_profile", args: { titleFont: "display", titleTreatment: "wide" } }])} type="button">Stylish title</button>
+            <button className="action-btn" onClick={() => applyManualToolCalls([{ tool: "change_profile", args: { bioFont: "serif", bioTreatment: "card" } }])} type="button">Bio card</button>
+            <button className="action-btn" onClick={() => applyManualToolCalls([{ tool: "reset_page", args: {} }])} type="button">Reset visuals</button>
+          </div>
+          <div className="mt-2 flex gap-2">
+            <button className="action-btn flex-1" onClick={() => applyManualToolCalls([{ tool: "change_layout", args: { alignment: "left" } }])} type="button">Align left</button>
+            <button className="action-btn flex-1" onClick={() => applyManualToolCalls([{ tool: "change_layout", args: { alignment: "center" } }])} type="button">Center</button>
+          </div>
+        </div>
+
+        <div className="rounded-xl border border-white/[0.06] bg-white/[0.02] p-3">
+          <p className="mb-2 text-[11px] font-semibold uppercase tracking-[0.16em] text-zinc-500">Add Link</p>
+          <div className="grid gap-2">
           <input
             className="rounded-lg border border-white/10 bg-black/40 px-3 py-2 text-xs outline-none ring-fuchsia-400/40 placeholder:text-zinc-600 focus:ring-2"
             onChange={(e) => setNewLinkLabel(e.target.value)}
@@ -455,50 +506,33 @@ function LinkManager({
           </div>
         </div>
       </div>
-
-      <div className="space-y-2">
-        {config.links.map((link) => (
-          <div
-            className="rounded-lg border border-white/[0.06] bg-white/[0.02] p-2.5"
-            key={link.id}
-          >
-            <div className="flex items-start justify-between gap-2">
-              <div className="min-w-0">
-                <p className="truncate text-xs font-semibold text-white">{link.label}</p>
-                <p className="truncate text-[10px] text-zinc-500">{link.url}</p>
-                <p className="mt-0.5 text-[9px] uppercase tracking-[0.15em] text-zinc-600">
-                  {link.kind} &middot; {link.id}
-                </p>
-              </div>
-              <div className="flex shrink-0 gap-1">
-                <button
-                  className={[
-                    "rounded-md border px-2 py-1 text-[10px] transition",
-                    link.featured
-                      ? "border-fuchsia-400/30 bg-fuchsia-400/10 text-fuchsia-300"
-                      : "border-white/10 text-zinc-400 hover:bg-white/5",
-                  ].join(" ")}
-                  onClick={() => featureUserLink(link.id)}
-                  type="button"
-                >
-                  {link.featured ? "Featured" : "Feature"}
-                </button>
-                <button
-                  className="rounded-md border border-red-400/20 px-2 py-1 text-[10px] text-red-300/70 hover:bg-red-400/10"
-                  onClick={() => removeUserLink(link.id)}
-                  type="button"
-                >
-                  Remove
-                </button>
-              </div>
-            </div>
-          </div>
-        ))}
       </div>
 
       {config.links.length === 0 && (
-        <p className="mt-4 text-center text-xs text-zinc-600">No links yet. Add one above.</p>
+        <p className="mt-3 text-center text-xs text-zinc-600">No links yet. Add one above.</p>
       )}
+      <style jsx>{`
+        .control-btn {
+          border: 1px solid rgba(255,255,255,.1);
+          border-radius: .375rem;
+          padding: .25rem .45rem;
+          font-size: 10px;
+          color: rgb(161 161 170);
+        }
+        .control-btn:hover:not(:disabled) { background: rgba(255,255,255,.06); color: white; }
+        .control-btn:disabled { opacity: .35; cursor: not-allowed; }
+        .action-btn {
+          border: 1px solid rgba(255,255,255,.1);
+          border-radius: .65rem;
+          background: rgba(255,255,255,.04);
+          padding: .55rem .65rem;
+          font-size: 11px;
+          font-weight: 700;
+          color: rgb(212 212 216);
+          transition: background .15s ease, color .15s ease, border-color .15s ease;
+        }
+        .action-btn:hover { border-color: rgba(217,70,239,.35); background: rgba(217,70,239,.12); color: white; }
+      `}</style>
     </div>
   );
 }

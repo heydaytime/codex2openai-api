@@ -9,12 +9,14 @@ export function ChatWindow({
   isLoading,
   liveActivity,
   onSend,
+  onRetry,
   suggestions,
 }: {
   messages: ChatMessage[];
   isLoading: boolean;
   liveActivity: AiActivityEvent[];
   onSend: (message: string) => void;
+  onRetry: (message: string) => void;
   suggestions: string[];
 }) {
   const [input, setInput] = useState("");
@@ -58,7 +60,7 @@ export function ChatWindow({
         )}
 
         {messages.map((msg) => (
-          <MessageBubble key={msg.id} message={msg} />
+          <MessageBubble isLoading={isLoading} key={msg.id} message={msg} onRetry={onRetry} />
         ))}
 
         {isLoading && (
@@ -125,12 +127,22 @@ export function ChatWindow({
   );
 }
 
-function MessageBubble({ message }: { message: ChatMessage }) {
+function MessageBubble({ message, isLoading, onRetry }: { message: ChatMessage; isLoading: boolean; onRetry: (message: string) => void }) {
   if (message.role === "system") {
     return (
       <div className="mb-3 flex justify-center">
-        <div className="rounded-full border border-white/5 bg-white/[0.02] px-4 py-1.5 text-xs text-zinc-500">
-          {message.content}
+        <div className="max-w-[90%] rounded-2xl border border-white/5 bg-white/[0.02] px-4 py-2 text-xs text-zinc-500">
+          <span>{message.content}</span>
+          {message.retryPrompt && (
+            <button
+              className="ml-3 rounded-full border border-amber-300/20 bg-amber-300/10 px-2 py-1 text-[10px] font-bold text-amber-200 transition hover:bg-amber-300/20 disabled:opacity-40"
+              disabled={isLoading}
+              onClick={() => onRetry(message.retryPrompt!)}
+              type="button"
+            >
+              Try again
+            </button>
+          )}
         </div>
       </div>
     );

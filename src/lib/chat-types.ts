@@ -34,6 +34,7 @@ export type ChatMessageSystem = {
   id: string;
   content: string;
   timestamp: number;
+  retryPrompt?: string;
 };
 
 export type ChatMessage = ChatMessageUser | ChatMessageAssistant | ChatMessageSystem;
