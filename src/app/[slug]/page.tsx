@@ -3,7 +3,7 @@ import { notFound } from "next/navigation";
 
 const BACKEND_URL = process.env.NEXT_PUBLIC_BACKEND_URL ?? "http://localhost:4000";
 
-export const revalidate = 60;
+export const dynamic = "force-dynamic";
 
 export default async function PublicPage({ params }: { params: Promise<{ slug: string }> }) {
   const { slug } = await params;
@@ -12,9 +12,7 @@ export default async function PublicPage({ params }: { params: Promise<{ slug: s
   if (reservedRoutes.includes(slug)) return notFound();
 
   try {
-    const response = await fetch(`${BACKEND_URL}/api/page/${slug}`, {
-      next: { revalidate: 60 },
-    });
+    const response = await fetch(`${BACKEND_URL}/api/page/published/${slug}`, { cache: "no-store" });
 
     if (!response.ok) return notFound();
 
@@ -22,10 +20,8 @@ export default async function PublicPage({ params }: { params: Promise<{ slug: s
     if (!data.ok || !data.config) return notFound();
 
     return (
-      <main className="min-h-screen bg-black">
-        <div className="mx-auto max-w-lg">
-          <PagePreview config={data.config} />
-        </div>
+      <main className="min-h-screen">
+        <PagePreview config={data.config} fullPage publicSlug={slug} />
       </main>
     );
   } catch {
@@ -37,9 +33,7 @@ export async function generateMetadata({ params }: { params: Promise<{ slug: str
   const { slug } = await params;
 
   try {
-    const response = await fetch(`${BACKEND_URL}/api/page/${slug}`, {
-      next: { revalidate: 60 },
-    });
+    const response = await fetch(`${BACKEND_URL}/api/page/published/${slug}`, { cache: "no-store" });
 
     if (!response.ok) return { title: "Not Found" };
 

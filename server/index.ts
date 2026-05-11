@@ -37,7 +37,7 @@ import { presetTools, type PresetSearchResult } from "../src/lib/preset-tools";
 import { searchPresetEmbeddings } from "./preset-embedding-db";
 import { log, createRequestId } from "./logger";
 import { checkRateLimit } from "./rate-limit";
-import { verifyFirebaseToken, extractBearerToken, type AuthUser } from "./auth";
+import { verifyFirebaseToken, extractBearerToken, DEV_MODE, type AuthUser } from "./auth";
 import {
   initDb,
   upsertUser,
@@ -150,6 +150,11 @@ await pingRedis()
     process.exit(1);
   });
 
+if (DEV_MODE) {
+  log("info", "DEV_MODE enabled — auth is bypassed, dev user created (no username yet)");
+  await upsertUser("dev-user-001", "dev@linkqt.me", "Dev User", "dev");
+}
+
 // ── Server ──
 
 const server = Bun.serve<WsData>({
@@ -163,7 +168,7 @@ const server = Bun.serve<WsData>({
 
     // ── WebSocket Upgrade ──
     if (url.pathname === "/ws") {
-      const token = url.searchParams.get("token");
+      const token = url.searchParams.get("token") || (DEV_MODE ? "dev-token" : null);
       if (!token) return json({ error: "Missing token" }, 401);
 
       const authUser = await verifyFirebaseToken(token);
@@ -187,8 +192,8 @@ const server = Bun.serve<WsData>({
       });
     }
 
-    if (url.pathname.startsWith("/api/page/") && request.method === "GET") {
-      const slug = url.pathname.slice("/api/page/".length);
+    if (url.pathname.startsWith("/api/page/published/") && request.method === "GET") {
+      const slug = url.pathname.slice("/api/page/published/".length);
       if (slug && !slug.includes("/")) {
         return handleGetPublishedPage(slug);
       }
@@ -290,9 +295,10 @@ const server = Bun.serve<WsData>({
         emit({ type: "status", label: "Received request", detail: "Preparing current page context." });
 
         const aiResult = await runAiToolLoop(reqId, prompt, config, chatHistory ?? [], emit);
+        const pageConfig = withUserSlug(aiResult.config, ws.data.dbUser);
         const toolCalls = dedupeToolCalls(aiResult.toolCalls);
 
-        await saveDraft(ws.data.dbUser.id, aiResult.config);
+        await saveDraft(ws.data.dbUser.id, pageConfig);
 
         log("info", "WebSocket edit complete", {
           reqId,
@@ -308,7 +314,7 @@ const server = Bun.serve<WsData>({
           data: {
             ok: true,
             ai: { message: aiResult.message, tool_calls: toolCalls },
-            config: aiResult.config,
+            config: pageConfig,
             flow: aiResult.flow,
             aiRequests: aiResult.aiRequests,
             maxAiRequests: MAX_AI_REQUESTS,
@@ -422,7 +428,7 @@ async function handleSyncDraft(request: Request, dbUser: DbUser) {
   try {
     const body = await request.json();
     const { config } = SyncDraftSchema.parse(body);
-    await saveDraft(dbUser.id, config);
+    await saveDraft(dbUser.id, withUserSlug(config, dbUser));
     return json({ ok: true });
   } catch (error) {
     return json({ ok: false, error: error instanceof Error ? error.message : "Invalid config" }, 400);
@@ -433,14 +439,25 @@ async function handlePublish(request: Request, dbUser: DbUser) {
   try {
     const body = await request.json();
     const { config } = PublishSchema.parse(body);
+    const pageConfig = withUserSlug(config, dbUser);
 
-    await publishPage(dbUser.username!, dbUser.id, config);
-    await saveDraft(dbUser.id, config);
+    const published = await publishPage(dbUser.username!, dbUser.id, pageConfig);
+    if (!published) return json({ ok: false, error: "Could not publish this page." }, 403);
+
+    await saveDraft(dbUser.id, pageConfig);
+
+    log("info", "Page published", { userId: dbUser.id, username: dbUser.username });
 
     return json({ ok: true, message: "Page published successfully." });
   } catch (error) {
     return json({ ok: false, error: error instanceof Error ? error.message : "Publish failed" }, 400);
   }
+}
+
+function withUserSlug(config: PageConfig, dbUser: DbUser): PageConfig {
+  return dbUser.username && config.slug !== dbUser.username
+    ? { ...config, slug: dbUser.username }
+    : config;
 }
 
 async function handleApplyTools(request: Request, dbUser: DbUser) {
@@ -451,8 +468,9 @@ async function handleApplyTools(request: Request, dbUser: DbUser) {
     const body = await request.json();
     const { config, toolCalls } = ApplyToolsRequestSchema.parse(body);
     const applied = applyToolCalls(config, toolCalls, { source: "ai", pass: 0 });
+    const pageConfig = withUserSlug(applied.config, dbUser);
 
-    await saveDraft(dbUser.id, applied.config);
+    await saveDraft(dbUser.id, pageConfig);
 
     log("info", "Manual tool apply complete", {
       reqId,
@@ -461,7 +479,7 @@ async function handleApplyTools(request: Request, dbUser: DbUser) {
       userId: dbUser.id,
     });
 
-    return json({ ok: true, config: applied.config, flow: applied.trace });
+    return json({ ok: true, config: pageConfig, flow: applied.trace });
   } catch (error) {
     const message = error instanceof Error ? error.message : "Unknown error";
     log("error", "Manual tool apply failed", { reqId, error: message });

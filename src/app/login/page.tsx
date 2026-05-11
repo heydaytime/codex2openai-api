@@ -1,10 +1,12 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { useAuth } from "@/lib/auth-context";
-import { signInWith, type OAuthProviderName } from "@/lib/firebase";
-import { useEffect } from "react";
+
+const IS_DEV_MODE = process.env.NEXT_PUBLIC_DEV_MODE === "true";
+
+type OAuthProviderName = "google" | "github" | "facebook" | "twitter" | "microsoft";
 
 const oauthProviders: { name: OAuthProviderName; label: string; bg: string; text: string }[] = [
   { name: "google", label: "Google", bg: "bg-white hover:bg-zinc-100", text: "text-zinc-900" },
@@ -15,7 +17,7 @@ const oauthProviders: { name: OAuthProviderName; label: string; bg: string; text
 ];
 
 export default function LoginPage() {
-  const { user, loading } = useAuth();
+  const { user, loading, refreshUser } = useAuth();
   const router = useRouter();
   const [error, setError] = useState<string | null>(null);
   const [signingIn, setSigningIn] = useState(false);
@@ -34,6 +36,7 @@ export default function LoginPage() {
     setError(null);
     setSigningIn(true);
     try {
+      const { signInWith } = await import("@/lib/firebase");
       await signInWith(provider);
     } catch (err) {
       const message = err instanceof Error ? err.message : "Sign in failed. Try again.";
@@ -43,6 +46,12 @@ export default function LoginPage() {
     } finally {
       setSigningIn(false);
     }
+  }
+
+  async function handleDevSignIn() {
+    setSigningIn(true);
+    await refreshUser();
+    setSigningIn(false);
   }
 
   if (loading) {
@@ -73,19 +82,30 @@ export default function LoginPage() {
             Sign in to get started
           </p>
 
-          <div className="grid gap-3">
-            {oauthProviders.map((provider) => (
-              <button
-                key={provider.name}
-                className={`flex w-full items-center justify-center gap-3 rounded-xl px-4 py-3 text-sm font-bold transition disabled:opacity-50 ${provider.bg} ${provider.text}`}
-                disabled={signingIn}
-                onClick={() => handleSignIn(provider.name)}
-                type="button"
-              >
-                Continue with {provider.label}
-              </button>
-            ))}
-          </div>
+          {IS_DEV_MODE ? (
+            <button
+              className="flex w-full items-center justify-center gap-3 rounded-xl bg-fuchsia-500 px-4 py-3 text-sm font-bold text-white transition hover:bg-fuchsia-400 disabled:opacity-50"
+              disabled={signingIn}
+              onClick={handleDevSignIn}
+              type="button"
+            >
+              {signingIn ? "Signing in..." : "Continue as Dev User"}
+            </button>
+          ) : (
+            <div className="grid gap-3">
+              {oauthProviders.map((provider) => (
+                <button
+                  key={provider.name}
+                  className={`flex w-full items-center justify-center gap-3 rounded-xl px-4 py-3 text-sm font-bold transition disabled:opacity-50 ${provider.bg} ${provider.text}`}
+                  disabled={signingIn}
+                  onClick={() => handleSignIn(provider.name)}
+                  type="button"
+                >
+                  Continue with {provider.label}
+                </button>
+              ))}
+            </div>
+          )}
 
           {error && (
             <p className="mt-4 rounded-lg bg-red-400/10 px-3 py-2 text-center text-xs text-red-300">

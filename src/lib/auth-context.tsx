@@ -10,6 +10,8 @@ import {
 } from "react";
 import { apiGet } from "./api";
 
+const IS_DEV_MODE = process.env.NEXT_PUBLIC_DEV_MODE === "true";
+
 interface UserProfile {
   id: string;
   email: string;
@@ -44,17 +46,30 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       const data = await apiGet("/api/auth/me", idToken);
       if (data.ok) {
         setUser(data.user);
-      } else {
-        setUser(null);
+        setToken(idToken);
+        return true;
       }
+      setUser(null);
+      return false;
     } catch {
       setUser(null);
+      return false;
     }
   }, []);
 
   useEffect(() => {
     if (typeof window === "undefined") {
       setLoading(false);
+      return;
+    }
+
+    if (IS_DEV_MODE) {
+      const saved = sessionStorage.getItem("linkqt-dev-token");
+      if (saved) {
+        fetchProfile(saved).then(() => setLoading(false));
+      } else {
+        setLoading(false);
+      }
       return;
     }
 
@@ -80,13 +95,24 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, [fetchProfile]);
 
   const signOut = useCallback(async () => {
-    const { signOut: fbSignOut } = await import("./firebase");
-    await fbSignOut();
+    if (IS_DEV_MODE) {
+      sessionStorage.removeItem("linkqt-dev-token");
+    } else {
+      const { signOut: fbSignOut } = await import("./firebase");
+      await fbSignOut();
+    }
     setUser(null);
     setToken(null);
   }, []);
 
   const refreshUser = useCallback(async () => {
+    if (IS_DEV_MODE) {
+      const devToken = "dev-token";
+      sessionStorage.setItem("linkqt-dev-token", devToken);
+      await fetchProfile(devToken);
+      return;
+    }
+
     const { getIdToken } = await import("./firebase");
     const idToken = await getIdToken();
     if (idToken) {

@@ -16,7 +16,6 @@ import {
   linkShapes,
   moods,
   paddingPresets,
-  samplePageConfig,
   shadowPresets,
   sizePresets,
   spacingPresets,
@@ -71,10 +70,11 @@ const suggestions = [
 
 export function AiEditor({ initialConfig, token, username }: AiEditorProps) {
   const { signOut } = useAuth();
-  const [config, setConfig] = useState<PageConfig>(initialConfig);
+  const normalizedInitialConfig = withPublicSlug(initialConfig, username);
+  const [config, setConfig] = useState<PageConfig>(normalizedInitialConfig);
   const [chatMessages, setChatMessages] = useState<ChatHistory>([]);
   const chatMessagesRef = useRef<ChatHistory>([]);
-  const configRef = useRef<PageConfig>(initialConfig);
+  const configRef = useRef<PageConfig>(normalizedInitialConfig);
   const liveActivityRef = useRef<AiActivityEvent[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [liveActivity, setLiveActivity] = useState<AiActivityEvent[]>([]);
@@ -83,7 +83,7 @@ export function AiEditor({ initialConfig, token, username }: AiEditorProps) {
   const [isPublishing, setIsPublishing] = useState(false);
   const [publishStatus, setPublishStatus] = useState<"idle" | "success" | "error">("idle");
 
-  const [configHistory, setConfigHistory] = useState<PageConfig[]>([initialConfig]);
+  const [configHistory, setConfigHistory] = useState<PageConfig[]>([normalizedInitialConfig]);
   const [historyIndex, setHistoryIndex] = useState(0);
 
   const [newLinkLabel, setNewLinkLabel] = useState("");
@@ -161,6 +161,7 @@ export function AiEditor({ initialConfig, token, username }: AiEditorProps) {
   // ── Config Management ──
 
   function pushConfig(next: PageConfig) {
+    next = withPublicSlug(next, username);
     const newHistory = configHistory.slice(0, historyIndex + 1);
     newHistory.push(next);
     if (newHistory.length > 30) newHistory.shift();
@@ -198,7 +199,7 @@ export function AiEditor({ initialConfig, token, username }: AiEditorProps) {
   function syncDraftToBackend(cfg: PageConfig) {
     if (syncDebounceRef.current) clearTimeout(syncDebounceRef.current);
     syncDebounceRef.current = setTimeout(() => {
-      apiPost("/api/page/draft", { config: cfg }, token).catch(() => {});
+      apiPost("/api/page/draft", { config: withPublicSlug(cfg, username) }, token).catch(() => {});
     }, 1000);
   }
 
@@ -208,7 +209,7 @@ export function AiEditor({ initialConfig, token, username }: AiEditorProps) {
     setIsPublishing(true);
     setPublishStatus("idle");
     try {
-      const result = await apiPost("/api/page/publish", { config: configRef.current }, token);
+      const result = await apiPost("/api/page/publish", { config: withPublicSlug(configRef.current, username) }, token);
       if (result.ok) {
         setPublishStatus("success");
         setHasUnsavedChanges(false);
@@ -525,6 +526,7 @@ export function AiEditor({ initialConfig, token, username }: AiEditorProps) {
                     config={config}
                     fit
                     onSelectElement={setSelectedElement}
+                    publicSlug={username}
                     selectedElement={selectedElement}
                   />
                 </div>
@@ -552,6 +554,10 @@ export function AiEditor({ initialConfig, token, username }: AiEditorProps) {
       </div>
     </main>
   );
+}
+
+function withPublicSlug(config: PageConfig, username: string): PageConfig {
+  return config.slug === username ? config : { ...config, slug: username };
 }
 
 // ── Manual Control Dock ──

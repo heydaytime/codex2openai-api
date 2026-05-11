@@ -421,7 +421,7 @@ export type SceneElement = z.infer<typeof SceneElementSchema>;
 
 export const samplePageConfig: PageConfig = {
   version: 1,
-  slug: "heydaytime",
+  slug: "username",
   profile: {
     displayName: "HeyDayTime",
     bio: "Producer, DJ, and visual artist building bright little worlds on the internet.",
@@ -464,7 +464,7 @@ export const samplePageConfig: PageConfig = {
     elements: []
   },
   links: [
-    { id: "instagram", label: "Instagram", url: "https://instagram.com/heydaytime", kind: "social", featured: false },
+    { id: "instagram", label: "Instagram", url: "https://instagram.com/username", kind: "social", featured: false },
     { id: "spotify", label: "Spotify", url: "https://open.spotify.com/artist/example", kind: "music", featured: true },
     { id: "merch", label: "Merch Drop", url: "https://example.com/merch", kind: "shop", featured: false }
   ]

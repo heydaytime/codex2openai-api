@@ -1,3 +1,5 @@
+"use client";
+
 import type { CSSProperties } from "react";
 import type { PageConfig, SceneElement } from "@/lib/page-config";
 import {
@@ -21,25 +23,32 @@ export type PreviewSelection = "page" | "title" | "bio" | "layout" | "all-links"
 export function PagePreview({
   config,
   fit = false,
+  fullPage = false,
+  publicSlug,
   selectedElement,
   onSelectElement
 }: {
   config: PageConfig;
   fit?: boolean;
+  fullPage?: boolean;
+  publicSlug?: string;
   selectedElement?: PreviewSelection;
   onSelectElement?: (element: PreviewSelection) => void;
 }) {
   const accent = accentClasses[config.theme.accent];
   const shellClass = [
-    "relative w-full min-w-0 overflow-hidden rounded-[2rem] border border-white/10 shadow-2xl [contain:layout_paint]",
-    fit ? "h-full" : "h-[720px] max-h-[80vh] min-h-[560px]",
+    "relative w-full min-w-0 overflow-hidden [contain:layout_paint]",
+    fullPage
+      ? "min-h-screen rounded-none border-0 shadow-none"
+      : "rounded-[2rem] border border-white/10 shadow-2xl",
+    fullPage ? "" : fit ? "h-full" : "h-[720px] max-h-[80vh] min-h-[560px]",
     backgroundClasses[config.theme.background],
     textClasses[config.theme.text],
     fontClasses[config.theme.font],
     paddingClasses[config.layout.padding ?? "normal"]
   ].join(" ");
 
-  const contentClass = getContentClass(config);
+  const contentClass = getContentClass(config, fullPage);
   const customBackgroundStyle = getCustomBackgroundStyle(config);
   const customTypographyStyle = getCustomTypographyStyle(config);
 
@@ -49,11 +58,11 @@ export function PagePreview({
         shellClass,
         onSelectElement ? "cursor-pointer" : ""
       ].join(" ")}
-      onClick={() => onSelectElement?.("page")}
+      onClick={onSelectElement ? () => onSelectElement("page") : undefined}
       style={{ ...customBackgroundStyle, ...customTypographyStyle }}
     >
       <CreativeScene config={config} />
-      <div className="relative z-10 h-full min-w-0 overflow-hidden">
+      <div className={["relative z-10 min-w-0 overflow-hidden", fullPage ? "min-h-screen" : "h-full"].join(" ")}>
         <div
           className={[contentClass, "rounded-[2rem] transition", selectionClass(selectedElement === "layout")].join(" ")}
           onClick={(event) => {
@@ -62,7 +71,7 @@ export function PagePreview({
             onSelectElement("layout");
           }}
         >
-          <ProfileBlock config={config} onSelectElement={onSelectElement} selectedElement={selectedElement} />
+          <ProfileBlock config={config} onSelectElement={onSelectElement} publicSlug={publicSlug} selectedElement={selectedElement} />
           <div
             className={[
               "w-full",
@@ -203,31 +212,34 @@ function getCustomTypographyStyle(config: PageConfig): CSSProperties | undefined
   return { color: config.theme.textColor };
 }
 
-function getContentClass(config: PageConfig) {
+function getContentClass(config: PageConfig, fullPage = false) {
   const width = widthClasses[config.layout.width];
   const align = config.layout.alignment === "center" ? "items-center text-center" : "items-start text-left";
+  const height = fullPage ? "min-h-screen" : "h-full";
 
   if (config.layout.preset === "split-hero") {
-    return "mx-auto grid h-full min-w-0 max-w-5xl items-center gap-8 overflow-hidden md:grid-cols-[minmax(0,1.1fr)_minmax(0,0.9fr)]";
+    return ["mx-auto grid min-w-0 max-w-5xl items-center gap-8 overflow-hidden md:grid-cols-[minmax(0,1.1fr)_minmax(0,0.9fr)]", height].join(" ");
   }
   if (config.layout.preset === "poster-card") {
-    return ["mx-auto flex h-full min-w-0 flex-col justify-center overflow-hidden rounded-[2rem] border p-6", width, surfaceClasses[config.theme.surface]].join(" ");
+    return ["mx-auto flex min-w-0 flex-col justify-center overflow-hidden rounded-[2rem] border p-6", height, width, surfaceClasses[config.theme.surface]].join(" ");
   }
   if (config.layout.preset === "compact") {
-    return ["mx-auto flex h-full min-w-0 flex-col justify-center overflow-hidden", width, align].join(" ");
+    return ["mx-auto flex min-w-0 flex-col justify-center overflow-hidden", height, width, align].join(" ");
   }
   if (config.layout.preset === "bold-banner") {
-    return ["mx-auto flex h-full min-w-0 max-w-3xl flex-col justify-center overflow-hidden", align].join(" ");
+    return ["mx-auto flex min-w-0 max-w-3xl flex-col justify-center overflow-hidden", height, align].join(" ");
   }
-  return ["mx-auto flex h-full min-w-0 flex-col justify-center overflow-hidden", width, align].join(" ");
+  return ["mx-auto flex min-w-0 flex-col justify-center overflow-hidden", height, width, align].join(" ");
 }
 
 function ProfileBlock({
   config,
+  publicSlug,
   selectedElement,
   onSelectElement
 }: {
   config: PageConfig;
+  publicSlug?: string;
   selectedElement?: PreviewSelection;
   onSelectElement?: (element: PreviewSelection) => void;
 }) {
@@ -258,7 +270,7 @@ function ProfileBlock({
           ) : config.profile.displayName.slice(0, 1).toUpperCase()}
         </div>
       ) : null}
-      <p className="mb-3 text-xs uppercase tracking-[0.35em] opacity-70">linkqt.me/{config.slug}</p>
+      <p className="mb-3 text-xs uppercase tracking-[0.35em] opacity-70">linkqt.me/{publicSlug ?? config.slug}</p>
       <h1
         className={[
           "break-words rounded-2xl font-black leading-none transition",

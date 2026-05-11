@@ -8,6 +8,7 @@ export const sql = postgres(DATABASE_URL, {
   max: 20,
   idle_timeout: 30,
   connect_timeout: 10,
+  onnotice: () => {},
 });
 
 export async function initDb() {
@@ -168,12 +169,16 @@ export async function publishPage(
   slug: string,
   userId: string,
   config: PageConfig
-): Promise<void> {
-  await sql`
-    UPDATE pages
-    SET config = ${sql.json(config)}, is_published = TRUE, updated_at = NOW()
-    WHERE slug = ${slug} AND user_id = ${userId}
+): Promise<boolean> {
+  const rows = await sql<{ slug: string }[]>`
+    INSERT INTO pages (slug, user_id, config, is_published)
+    VALUES (${slug}, ${userId}, ${sql.json(config)}, TRUE)
+    ON CONFLICT (slug) DO UPDATE
+    SET config = EXCLUDED.config, is_published = TRUE, updated_at = NOW()
+    WHERE pages.user_id = ${userId}
+    RETURNING slug
   `;
+  return rows.length > 0;
 }
 
 export async function getPublishedPage(slug: string): Promise<PageConfig | null> {

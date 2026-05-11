@@ -4,21 +4,24 @@
 
 The core architecture is intentionally constrained: the AI and manual controls edit structured JSON tool calls, not application source code.
 
-## Current Prototype
+## Current Architecture
 
-This repository contains a working local prototype:
+This repository contains the production-oriented app stack:
 
 - Next.js frontend with Tailwind.
 - Bun backend at `server/index.ts`.
+- Firebase OAuth authentication.
+- Username claiming and public pages at `/:slug`.
+- PostgreSQL persistence for users, published pages, image bytes, chat history, and AI usage.
+- Redis-backed draft state so edits remain private until publish.
 - Local Ollama integration using `gemma4:e2b` by default.
 - Local embedding search using `nomic-embed-text`.
-- SQLite persistence module using `bun:sqlite` with WAL mode.
 - Live preview rendered from a validated `PageConfig`.
 - AI streaming activity timeline, including status, routing decisions, retries, tool calls, and fallback events.
 - Manual controls that call the same backend tool-application endpoint as the AI.
-- Profile image upload with client-side square crop before saving to config.
+- Profile image upload with client-side square crop before saving image bytes through the backend.
 
-The prototype state is still primarily browser state. The SQLite schema exists, but page persistence is not fully wired into the UI yet.
+The backend is the source of truth for validated drafts. Public pages read only from the published PostgreSQL config.
 
 ## Running Locally
 
@@ -34,14 +37,24 @@ Start frontend and backend together:
 bun run dev:all
 ```
 
+`dev:all` expects local Redis and PostgreSQL to be reachable, starts Ollama if needed, then runs the backend in `DEV_MODE` with auth bypassed.
+
 Or run them separately:
 
 ```bash
-bun run backend
-bun run dev
+DEV_MODE=true DATABASE_URL=postgres://$USER@localhost:5432/linkqt REDIS_URL=redis://localhost:6379 bun run backend
+NEXT_PUBLIC_DEV_MODE=true NEXT_PUBLIC_BACKEND_URL=http://localhost:4000 bun run dev
 ```
 
-Then open `http://localhost:3000`.
+Then open `http://localhost:3000`. In dev mode, sign in with the "Continue as Dev User" button, claim a username, then use `/dashboard`.
+
+Make sure Redis and PostgreSQL are running locally:
+
+```bash
+redis-server
+brew services start postgresql@16
+createdb linkqt || true
+```
 
 Make sure Ollama is running and the required models exist locally:
 
@@ -55,17 +68,24 @@ Useful endpoints:
 
 - Frontend: `http://localhost:3000`
 - Backend health: `http://localhost:4000/health`
-- AI edit API: `POST http://localhost:4000/api/edit`
+- AI edit stream: `ws://localhost:4000/ws?token=<firebase-id-token>`
 - Manual tool API: `POST http://localhost:4000/api/apply-tools`
+- Draft API: `GET/POST http://localhost:4000/api/page/draft`
+- Publish API: `POST http://localhost:4000/api/page/publish`
+- Public page API: `GET http://localhost:4000/api/page/published/:slug`
 
 ## Backend Defaults
 
 ```txt
 PORT=4000
+DATABASE_URL=postgres://linkqt:linkqt@localhost:5432/linkqt
+REDIS_URL=redis://localhost:6379
+FIREBASE_PROJECT_ID=your-firebase-project-id
 OLLAMA_URL=http://localhost:11434
 OLLAMA_MODEL=gemma4:e2b
 OLLAMA_EMBED_MODEL=nomic-embed-text
 CORS_ORIGIN=http://localhost:3000
+NEXT_PUBLIC_BACKEND_URL=http://localhost:4000
 OLLAMA_TIMEOUT_MS=30000
 SERVER_IDLE_TIMEOUT_SECONDS=50
 MAX_EXECUTION_ATTEMPTS=1
@@ -136,10 +156,9 @@ Current behavior:
 - Drag/drop or click upload in the Profile Image panel.
 - Crop modal opens before saving.
 - User can adjust zoom, horizontal position, and vertical position.
-- The crop is exported as a square image and stored as a data image in the current page config.
+- The crop is exported as a square image, uploaded to the backend, and stored as image bytes in PostgreSQL.
+- The page config stores the backend image URL, not the data URL.
 - Delete profile image clears `profile.avatarUrl` through `change_profile`.
-
-This is prototype behavior. Production should upload images to object storage instead of storing data URLs in config.
 
 ## Tool Calls
 
@@ -224,23 +243,37 @@ if (errors.length || duplicateGroups.length) process.exit(1);
 
 ## Data And Persistence
 
-`server/db.ts` initializes a lightweight SQLite database in `data/linkqt.db` using `bun:sqlite`.
+`server/postgres.ts` initializes the PostgreSQL schema and owns durable app data.
+
+`server/redis.ts` stores per-user draft configs with a TTL. Publishing copies the current validated draft into PostgreSQL.
 
 Current tables:
 
 - `users`
 - `pages`
+- `images`
 - `chat_sessions`
 - `ai_usage`
 
-The database is initialized on backend start, but the UI still needs auth/user context before `/api/edit` can persist drafts and published pages.
+The public Next.js route `src/app/[slug]/page.tsx` fetches published config from `/api/page/published/:slug` with 60-second revalidation.
+
+## Deployment
+
+The intended production split is:
+
+1. Frontend on Vercel.
+2. Backend, PostgreSQL, Redis, and Cloudflare tunnel on the home server via `docker-compose.yml`.
+3. Ollama running on the host machine outside Docker.
+4. Firebase OAuth configured with the same `FIREBASE_PROJECT_ID` used by the backend verifier.
+
+Set `NEXT_PUBLIC_BACKEND_URL` in Vercel to the Cloudflare tunnel URL and set `CORS_ORIGIN` on the backend to the Vercel origin.
 
 ## Product Direction
 
 The recommended production model remains:
 
 1. User creates an account.
-2. User claims a slug such as `linkqt.me/heydaytime`.
+2. User claims a username, and their public page becomes `linkqt.me/<username>`.
 3. User adds links and profile content.
 4. User edits through AI chat or manual controls.
 5. The page remains structured validated config, not generated source code.
@@ -260,12 +293,11 @@ Important production risks to handle before launch:
 - Prompt injection against the AI assistant.
 - Usage limits and abuse controls.
 
-Current prototype limitations:
+Current production gaps:
 
 - Link URLs are not fully safety-validated yet.
-- Uploaded profile images are stored as data URLs in config.
-- Auth is not wired into the UI yet.
-- SQLite exists but live page persistence is not fully integrated.
+- Content moderation and abuse workflows are not implemented yet.
+- Production Firebase provider settings and Cloudflare tunnel config still need environment-specific setup.
 
 ## Positioning
 
