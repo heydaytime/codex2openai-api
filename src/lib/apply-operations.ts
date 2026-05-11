@@ -70,13 +70,7 @@ function applyOne(config: PageConfig, toolCall: AiToolCall): PageConfig {
       return PageConfigSchema.parse(presetConfig);
     }
     case "reset_page":
-      next.theme = { ...next.theme, ...defaultVisualConfig.theme, backgroundCss: undefined };
-      next.layout = { ...defaultVisualConfig.layout };
-      next.linkStyle = { ...defaultVisualConfig.linkStyle };
-      next.emphasis = { featuredLinkId: undefined, ...defaultVisualConfig.emphasis };
-      next.creativeLayer = { enabled: false, elements: [] };
-      next.links = next.links.map((link) => ({ ...link, featured: false, style: undefined }));
-      break;
+      return resetEverything(next);
     case "change_background":
       if (toolCall.args.css) {
         next.theme.background = "custom";
@@ -96,7 +90,10 @@ function applyOne(config: PageConfig, toolCall: AiToolCall): PageConfig {
       next.layout = { ...next.layout, ...toolCall.args };
       break;
     case "change_profile":
-      next.profile = { ...next.profile, ...toolCall.args };
+      const { avatarUrl, ...profileArgs } = toolCall.args;
+      next.profile = { ...next.profile, ...profileArgs };
+      if (avatarUrl === null) next.profile.avatarUrl = undefined;
+      if (typeof avatarUrl === "string") next.profile.avatarUrl = avatarUrl;
       break;
     case "change_link_appearance":
       next.linkStyle = { ...next.linkStyle, ...toolCall.args };
@@ -126,6 +123,8 @@ function applyOne(config: PageConfig, toolCall: AiToolCall): PageConfig {
     case "reorder_links":
       next.links = reorderLinks(next, toolCall.args.order);
       break;
+    case "reset_element":
+      return resetElement(next, toolCall.args.target, toolCall.args.id);
     default:
       toolCall satisfies never;
   }
@@ -146,6 +145,69 @@ function reorderLinks(config: PageConfig, order: string[]) {
   const ordered = uniqueOrder.map((id) => byId.get(id)!);
   const remaining = config.links.filter((link) => !uniqueOrder.includes(link.id));
   return [...ordered, ...remaining];
+}
+
+function resetElement(config: PageConfig, target: "page" | "title" | "bio" | "layout" | "links" | "link", id?: string): PageConfig {
+  const next = structuredClone(config);
+
+  if (target === "page") {
+    next.theme = { ...next.theme, ...defaultVisualConfig.theme };
+    next.creativeLayer = { ...defaultVisualConfig.creativeLayer, elements: [...defaultVisualConfig.creativeLayer.elements] };
+    return PageConfigSchema.parse(next);
+  }
+
+  if (target === "title") {
+    next.profile.titleFont = undefined;
+    next.profile.titleTreatment = undefined;
+    return PageConfigSchema.parse(next);
+  }
+
+  if (target === "bio") {
+    next.profile.bioFont = undefined;
+    next.profile.bioTreatment = undefined;
+    return PageConfigSchema.parse(next);
+  }
+
+  if (target === "layout") {
+    next.layout = { ...defaultVisualConfig.layout };
+    return PageConfigSchema.parse(next);
+  }
+
+  if (target === "links") {
+    next.linkStyle = { ...defaultVisualConfig.linkStyle };
+    next.emphasis = { featuredLinkId: undefined, ...defaultVisualConfig.emphasis };
+    next.links = next.links.map((link) => ({ ...link, featured: false, style: undefined }));
+    return PageConfigSchema.parse(next);
+  }
+
+  if (!id) throw new Error("reset_element target=link requires an id.");
+  ensureLinkExists(next, id);
+  if (next.emphasis.featuredLinkId === id) {
+    next.emphasis.featuredLinkId = undefined;
+    next.emphasis.featuredStyle = "none";
+  }
+  next.links = next.links.map((link) =>
+    link.id === id ? { ...link, featured: false, style: undefined } : link
+  );
+  return PageConfigSchema.parse(next);
+}
+
+function resetEverything(config: PageConfig): PageConfig {
+  let next = resetElement(config, "page");
+  next = resetElement(next, "title");
+  next = resetElement(next, "bio");
+  next = resetElement(next, "layout");
+  next = resetElement(next, "links");
+  next.profile = {
+    ...next.profile,
+    avatarStyle: defaultVisualConfig.profile.avatarStyle,
+    profileSize: defaultVisualConfig.profile.profileSize,
+    titleFont: defaultVisualConfig.profile.titleFont,
+    bioFont: defaultVisualConfig.profile.bioFont,
+    titleTreatment: defaultVisualConfig.profile.titleTreatment,
+    bioTreatment: defaultVisualConfig.profile.bioTreatment,
+  };
+  return PageConfigSchema.parse(next);
 }
 
 function ensureLinkExists(config: PageConfig, id: string) {

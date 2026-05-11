@@ -33,6 +33,7 @@ export const animationPresets = ["none", "lift", "pulse-featured"] as const;
 export const featuredStyles = ["none", "larger", "glow", "top-card", "badge"] as const;
 export const titleTreatments = ["normal", "wide", "tight", "gradient", "outline"] as const;
 export const bioTreatments = ["normal", "muted", "card", "caps"] as const;
+export const resetElementTargets = ["page", "title", "bio", "layout", "links", "link"] as const;
 export const linkKinds = ["social", "music", "video", "shop", "website", "other"] as const;
 export const contextSections = ["profile", "links", "visual_state", "available_tools", "current_config"] as const;
 export const sceneElementKinds = ["emoji", "text", "circle", "rectangle", "triangle"] as const;
@@ -55,6 +56,17 @@ const SafeColorValue = z
       /^rgba?\(\s*\d{1,3}\s*,\s*\d{1,3}\s*,\s*\d{1,3}(?:\s*,\s*(?:0|1|0?\.\d+))?\s*\)$/i.test(value.trim()) ||
       /^hsla?\(\s*\d{1,3}\s*,\s*\d{1,3}%\s*,\s*\d{1,3}%(?:\s*,\s*(?:0|1|0?\.\d+))?\s*\)$/i.test(value.trim()),
     "Color must be hex, rgb/rgba, or hsl/hsla."
+  );
+
+const ImageSource = z
+  .string()
+  .min(1)
+  .max(1_500_000)
+  .refine(
+    (value) =>
+      /^https?:\/\//i.test(value.trim()) ||
+      /^data:image\/(?:png|jpe?g|webp|gif);base64,[a-z0-9+/=\s]+$/i.test(value.trim()),
+    "Image must be an http(s) URL or a base64 data image."
   );
 
 const numeric = (min: number, max: number) =>
@@ -172,7 +184,7 @@ export const PageConfigSchema = z
       .object({
         displayName: z.string().min(1).max(80),
         bio: z.string().max(240),
-        avatarUrl: z.string().url().optional(),
+        avatarUrl: ImageSource.optional(),
         avatarStyle: z.enum(avatarStyles),
         profileSize: z.enum(sizePresets),
         titleFont: z.enum(fontPresets).optional(),
@@ -245,7 +257,9 @@ const OptionalLayoutArgs = z
 
 const OptionalProfileArgs = z
   .object({
+    displayName: z.string().min(1).max(80).optional(),
     bio: z.string().max(240).optional(),
+    avatarUrl: ImageSource.nullable().optional(),
     avatarStyle: z.enum(avatarStyles).optional(),
     profileSize: z.enum(sizePresets).optional(),
     titleFont: z.enum(fontPresets).optional(),
@@ -254,7 +268,7 @@ const OptionalProfileArgs = z
     bioTreatment: z.enum(bioTreatments).optional()
   })
   .strict()
-  .refine((value) => Object.values(value).some(Boolean), "change_profile needs at least one field.");
+  .refine((value) => Object.values(value).some((field) => field !== undefined), "change_profile needs at least one field.");
 
 const OptionalTypographyArgs = z
   .object({
@@ -368,6 +382,12 @@ export const AiToolCallSchema = z.discriminatedUnion("tool", [
       args: z.object({ order: z.array(z.string().min(1).max(64)).min(1).max(20) }).strict()
     })
     .strict(),
+  z
+    .object({
+      tool: z.literal("reset_element"),
+      args: z.object({ target: z.enum(resetElementTargets), id: z.string().min(1).max(64).optional() }).strict()
+    })
+    .strict(),
   z.object({ tool: z.literal("reset_page"), args: z.object({}).strict() }).strict(),
   z.object({ tool: z.literal("validate_result"), args: z.object({ checklist: z.array(z.string().min(1).max(120)).min(1).max(8) }).strict() }).strict()
 ]);
@@ -403,7 +423,7 @@ export const samplePageConfig: PageConfig = {
   version: 1,
   slug: "heydaytime",
   profile: {
-    displayName: "Hey Daytime",
+    displayName: "HeyDayTime",
     bio: "Producer, DJ, and visual artist building bright little worlds on the internet.",
     avatarStyle: "blob",
     profileSize: "md",
@@ -455,6 +475,14 @@ export function safeParsePageConfig(value: unknown) {
 }
 
 export const defaultVisualConfig = {
+  profile: {
+    avatarStyle: "circle" as const,
+    profileSize: "md" as const,
+    titleFont: undefined,
+    bioFont: undefined,
+    titleTreatment: undefined,
+    bioTreatment: undefined,
+  },
   theme: {
     mood: "clean" as const,
     background: "white" as const,
@@ -462,6 +490,8 @@ export const defaultVisualConfig = {
     font: "modern" as const,
     surface: "paper" as const,
     text: "dark" as const,
+    textColor: undefined,
+    backgroundCss: undefined,
   },
   layout: {
     preset: "centered-stack" as const,

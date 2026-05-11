@@ -14,7 +14,11 @@
   },
   "dependencies": {
     "@tailwindcss/postcss": "latest",
+    "firebase": "^12.13.0",
+    "ioredis": "^5.10.1",
+    "jose": "^6.2.3",
     "next": "latest",
+    "postgres": "^3.4.9",
     "react": "latest",
     "react-dom": "latest",
     "zod": "latest"

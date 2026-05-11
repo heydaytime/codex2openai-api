@@ -17,6 +17,7 @@ import {
   shadowPresets,
   animationPresets,
   featuredStyles,
+  resetElementTargets,
   sceneElementKinds,
   sceneEasings,
   titleTreatments,
@@ -106,6 +107,7 @@ export const toolCatalog: ToolDefinition[] = [
     description: "Update the bio text, avatar style, or profile section size. Cannot change display name or slug.",
     category: "content",
     args: [
+      { name: "displayName", type: "string", required: false, description: "Page title/display name (manual user edits only; AI should not change this)" },
       { name: "bio", type: "string", required: false, description: "New bio text (max 240 chars)" },
       { name: "avatarStyle", type: "enum", required: false, description: "Avatar display style", values: avatarStyles as unknown as string[] },
       { name: "profileSize", type: "enum", required: false, description: "Profile section size", values: sizePresets as unknown as string[] },
@@ -171,6 +173,15 @@ export const toolCatalog: ToolDefinition[] = [
     category: "content",
     args: [
       { name: "order", type: "array", required: true, description: "Existing link IDs in the desired order" },
+    ],
+  },
+  {
+    name: "reset_element",
+    description: "Reset one visual area back to defaults: page, title, bio, layout, all links, or one link by id.",
+    category: "control",
+    args: [
+      { name: "target", type: "enum", required: true, description: "Element area to reset", values: resetElementTargets as unknown as string[] },
+      { name: "id", type: "string", required: false, description: "Required only when target is link" },
     ],
   },
   {

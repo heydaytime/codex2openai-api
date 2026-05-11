@@ -16,10 +16,23 @@ import {
   widthClasses
 } from "@/lib/theme-classes";
 
-export function PagePreview({ config }: { config: PageConfig }) {
+export type PreviewSelection = "page" | "title" | "bio" | "layout" | "all-links" | `link:${string}`;
+
+export function PagePreview({
+  config,
+  fit = false,
+  selectedElement,
+  onSelectElement
+}: {
+  config: PageConfig;
+  fit?: boolean;
+  selectedElement?: PreviewSelection;
+  onSelectElement?: (element: PreviewSelection) => void;
+}) {
   const accent = accentClasses[config.theme.accent];
   const shellClass = [
-    "relative h-[720px] max-h-[80vh] min-h-[560px] w-full min-w-0 overflow-hidden rounded-[2rem] border border-white/10 shadow-2xl [contain:layout_paint]",
+    "relative w-full min-w-0 overflow-hidden rounded-[2rem] border border-white/10 shadow-2xl [contain:layout_paint]",
+    fit ? "h-full" : "h-[720px] max-h-[80vh] min-h-[560px]",
     backgroundClasses[config.theme.background],
     textClasses[config.theme.text],
     fontClasses[config.theme.font],
@@ -31,14 +44,41 @@ export function PagePreview({ config }: { config: PageConfig }) {
   const customTypographyStyle = getCustomTypographyStyle(config);
 
   return (
-    <section className={shellClass} style={{ ...customBackgroundStyle, ...customTypographyStyle }}>
+    <section
+      className={[
+        shellClass,
+        onSelectElement ? "cursor-pointer" : ""
+      ].join(" ")}
+      onClick={() => onSelectElement?.("page")}
+      style={{ ...customBackgroundStyle, ...customTypographyStyle }}
+    >
       <CreativeScene config={config} />
       <div className="relative z-10 h-full min-w-0 overflow-hidden">
-        <div className={contentClass}>
-          <ProfileBlock config={config} />
-          <div className={["w-full", spacingClasses[config.layout.spacing], "flex flex-col"].join(" ")}>
+        <div
+          className={[contentClass, "rounded-[2rem] transition", selectionClass(selectedElement === "layout")].join(" ")}
+          onClick={(event) => {
+            if (!onSelectElement) return;
+            event.stopPropagation();
+            onSelectElement("layout");
+          }}
+        >
+          <ProfileBlock config={config} onSelectElement={onSelectElement} selectedElement={selectedElement} />
+          <div
+            className={[
+              "w-full",
+              spacingClasses[config.layout.spacing],
+              "flex flex-col rounded-[1.5rem] transition",
+              selectionClass(selectedElement === "all-links")
+            ].join(" ")}
+            onClick={(event) => {
+              if (!onSelectElement) return;
+              event.stopPropagation();
+              onSelectElement("all-links");
+            }}
+          >
             {config.links.map((link) => {
               const featured = config.emphasis.featuredLinkId === link.id || link.featured;
+              const selected = selectedElement === `link:${link.id}`;
               return (
                 <a
                   className={[
@@ -51,10 +91,17 @@ export function PagePreview({ config }: { config: PageConfig }) {
                     (link.style?.shadow ?? config.linkStyle.shadow) === "glow" ? accent.glow : "",
                     (link.style?.animation ?? config.linkStyle.animation) === "lift" ? "hover:-translate-y-1" : "",
                     (link.style?.animation ?? config.linkStyle.animation) === "pulse-featured" && featured ? "animate-pulse" : "",
-                    featured ? getFeaturedClass(config) : ""
+                    featured ? getFeaturedClass(config) : "",
+                    selectionClass(selected)
                   ].join(" ")}
                   href={link.url}
                   key={link.id}
+                  onClick={(event) => {
+                    if (!onSelectElement) return;
+                    event.preventDefault();
+                    event.stopPropagation();
+                    onSelectElement(`link:${link.id}`);
+                  }}
                   rel="noreferrer"
                   target="_blank"
                 >
@@ -175,7 +222,15 @@ function getContentClass(config: PageConfig) {
   return ["mx-auto flex h-full min-w-0 flex-col justify-center overflow-hidden", width, align].join(" ");
 }
 
-function ProfileBlock({ config }: { config: PageConfig }) {
+function ProfileBlock({
+  config,
+  selectedElement,
+  onSelectElement
+}: {
+  config: PageConfig;
+  selectedElement?: PreviewSelection;
+  onSelectElement?: (element: PreviewSelection) => void;
+}) {
   const size = profileSizeClasses[config.profile.profileSize];
   const accent = accentClasses[config.theme.accent];
   const avatarShape = config.profile.avatarStyle === "blob" ? "rounded-[38%_62%_52%_48%/45%_42%_58%_55%]" : "rounded-full";
@@ -183,15 +238,65 @@ function ProfileBlock({ config }: { config: PageConfig }) {
   return (
     <div className="mb-8 max-w-2xl overflow-hidden">
       {config.profile.avatarStyle !== "hidden" ? (
-        <div className={["mb-5 inline-flex items-center justify-center border border-white/20 bg-white/15 font-black shadow-2xl backdrop-blur", size.avatar, avatarShape, accent.ring, "ring-4"].join(" ")}>
-          {config.profile.avatarUrl ? null : config.profile.displayName.slice(0, 1).toUpperCase()}
+        <div
+          className={[
+            "mb-5 inline-flex items-center justify-center overflow-hidden border border-white/20 bg-white/15 font-black shadow-2xl backdrop-blur transition",
+            size.avatar,
+            avatarShape,
+            accent.ring,
+            "ring-4",
+            selectionClass(selectedElement === "title")
+          ].join(" ")}
+          onClick={(event) => {
+            if (!onSelectElement) return;
+            event.stopPropagation();
+            onSelectElement("title");
+          }}
+        >
+          {config.profile.avatarUrl ? (
+            <img alt="Profile avatar" className="h-full w-full object-cover" src={config.profile.avatarUrl} />
+          ) : config.profile.displayName.slice(0, 1).toUpperCase()}
         </div>
       ) : null}
       <p className="mb-3 text-xs uppercase tracking-[0.35em] opacity-70">linkqt.me/{config.slug}</p>
-      <h1 className={["break-words font-black leading-none", size.title, fontClasses[config.profile.titleFont ?? config.theme.font], titleTreatmentClass(config.profile.titleTreatment)].join(" ")}>{config.profile.displayName}</h1>
-      <p className={["mt-5 max-w-xl break-words leading-7", size.bio, fontClasses[config.profile.bioFont ?? config.theme.font], bioTreatmentClass(config.profile.bioTreatment)].join(" ")}>{config.profile.bio}</p>
+      <h1
+        className={[
+          "break-words rounded-2xl font-black leading-none transition",
+          size.title,
+          fontClasses[config.profile.titleFont ?? config.theme.font],
+          titleTreatmentClass(config.profile.titleTreatment),
+          selectionClass(selectedElement === "title")
+        ].join(" ")}
+        onClick={(event) => {
+          if (!onSelectElement) return;
+          event.stopPropagation();
+          onSelectElement("title");
+        }}
+      >
+        {config.profile.displayName}
+      </h1>
+      <p
+        className={[
+          "mt-5 max-w-xl break-words rounded-2xl leading-7 transition",
+          size.bio,
+          fontClasses[config.profile.bioFont ?? config.theme.font],
+          bioTreatmentClass(config.profile.bioTreatment),
+          selectionClass(selectedElement === "bio")
+        ].join(" ")}
+        onClick={(event) => {
+          if (!onSelectElement) return;
+          event.stopPropagation();
+          onSelectElement("bio");
+        }}
+      >
+        {config.profile.bio}
+      </p>
     </div>
   );
+}
+
+function selectionClass(selected: boolean) {
+  return selected ? "ring-2 ring-fuchsia-300 ring-offset-2 ring-offset-black/60" : "";
 }
 
 function titleTreatmentClass(treatment: PageConfig["profile"]["titleTreatment"] = "normal") {
