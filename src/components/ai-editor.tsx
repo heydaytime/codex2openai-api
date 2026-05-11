@@ -6,6 +6,7 @@ import { ChatWindow } from "@/components/chat-window";
 import {
   accentPresets,
   animationPresets,
+  backgroundMotionPresets,
   backgroundPresets,
   bioTreatments,
   featuredStyles,
@@ -15,6 +16,8 @@ import {
   linkFills,
   linkShapes,
   moods,
+  motionIntensityPresets,
+  motionSpeedPresets,
   paddingPresets,
   shadowPresets,
   sizePresets,
@@ -605,6 +608,9 @@ function ManualControlDock({
     surface: "paper",
     text: "dark",
     font: "modern",
+    backgroundMotion: "none",
+    motionIntensity: "medium",
+    motionSpeed: "normal",
     titleFont: "display",
     titleTreatment: "wide",
     bioFont: "serif",
@@ -691,8 +697,10 @@ function ManualControlDock({
             <div className="grid grid-cols-2 gap-2 md:grid-cols-3">
               <button className="action-btn" onClick={() => applyManualToolCalls([{ tool: "change_background", args: { preset: "warm-gradient" } }, { tool: "change_theme", args: { mood: "warm", accent: "orange", surface: "paper", text: "dark" } }])} type="button">Warm</button>
               <button className="action-btn" onClick={() => applyManualToolCalls([{ tool: "change_background", args: { preset: "cyber-grid" } }, { tool: "change_theme", args: { mood: "cyberpunk", accent: "cyan", surface: "glow-card", text: "light" } }])} type="button">Cyber</button>
-              <button className="action-btn" onClick={() => applyManualToolCalls([{ tool: "change_background", args: { preset: "white" } }, { tool: "change_theme", args: { mood: "minimal", accent: "blue", surface: "paper", text: "dark" } }, { tool: "change_creative_layer", args: { enabled: false, elements: [] } }])} type="button">Clean</button>
+              <button className="action-btn" onClick={() => applyManualToolCalls([{ tool: "change_background", args: { preset: "white" } }, { tool: "change_theme", args: { mood: "minimal", accent: "blue", surface: "paper", text: "dark" } }, { tool: "change_background_motion", args: { preset: "none" } }, { tool: "change_creative_layer", args: { enabled: false, elements: [] } }])} type="button">Clean</button>
               <button className="action-btn" onClick={() => applyManualToolCalls([{ tool: "change_background", args: { preset: "black" } }, { tool: "change_theme", args: { mood: "luxury", accent: "gold", surface: "glass", text: "light" } }])} type="button">Luxury</button>
+              <button className="action-btn" onClick={() => applyManualToolCalls([{ tool: "change_background_motion", args: { preset: "aurora-drift", intensity: "medium", speed: "slow" } }])} type="button">Dynamic aurora</button>
+              <button className="action-btn" onClick={() => applyManualToolCalls([{ tool: "change_background_motion", args: { preset: "none" } }])} type="button">Stop motion</button>
               <button className="action-btn" onClick={() => applyManualToolCalls([{ tool: "reset_element", args: { target: "page" } }])} type="button">Reset page style</button>
               <button className="danger-action-btn" onClick={() => applyManualToolCalls([{ tool: "reset_page", args: {} }])} type="button">Reset everything</button>
             </div>
@@ -1083,9 +1091,13 @@ function ManualElementEditor({
         <ManualSelect label="Accent" onChange={(v) => setManualValue("accent", v)} options={accentPresets} value={manualValues.accent} />
         <ManualSelect label="Surface" onChange={(v) => setManualValue("surface", v)} options={surfacePresets} value={manualValues.surface} />
         <ManualSelect label="Text" onChange={(v) => setManualValue("text", v)} options={textPresets} value={manualValues.text} />
+        <ManualSelect label="Motion" onChange={(v) => setManualValue("backgroundMotion", v)} options={backgroundMotionPresets} value={manualValues.backgroundMotion} />
+        <ManualSelect label="Intensity" onChange={(v) => setManualValue("motionIntensity", v)} options={motionIntensityPresets} value={manualValues.motionIntensity} />
+        <ManualSelect label="Speed" onChange={(v) => setManualValue("motionSpeed", v)} options={motionSpeedPresets} value={manualValues.motionSpeed} />
         <button className="action-btn" onClick={() => void applyManualToolCalls([
           { tool: "change_background", args: { preset: manualValues.background } },
           { tool: "change_theme", args: { mood: manualValues.mood, accent: manualValues.accent, surface: manualValues.surface, text: manualValues.text } },
+          { tool: "change_background_motion", args: { preset: manualValues.backgroundMotion, intensity: manualValues.motionIntensity, speed: manualValues.motionSpeed } },
         ] as AiToolCall[])} type="button">Apply page settings</button>
       </div>
     );

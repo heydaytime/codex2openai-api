@@ -43,6 +43,7 @@ export function PagePreview({
       : "rounded-[2rem] border border-white/10 shadow-2xl",
     fullPage ? "" : fit ? "h-full" : "h-[720px] max-h-[80vh] min-h-[560px]",
     backgroundClasses[config.theme.background],
+    getBackgroundMotionClass(config),
     textClasses[config.theme.text],
     fontClasses[config.theme.font],
     paddingClasses[config.layout.padding ?? "normal"]
@@ -50,6 +51,7 @@ export function PagePreview({
 
   const contentClass = getContentClass(config, fullPage);
   const customBackgroundStyle = getCustomBackgroundStyle(config);
+  const backgroundMotionStyle = getBackgroundMotionStyle(config);
   const customTypographyStyle = getCustomTypographyStyle(config);
 
   return (
@@ -59,9 +61,10 @@ export function PagePreview({
         onSelectElement ? "cursor-pointer" : ""
       ].join(" ")}
       onClick={onSelectElement ? () => onSelectElement("page") : undefined}
-      style={{ ...customBackgroundStyle, ...customTypographyStyle }}
+      style={{ ...customBackgroundStyle, ...backgroundMotionStyle, ...customTypographyStyle }}
     >
       <CreativeScene config={config} />
+      <BackgroundMotionStyles />
       <div className={["relative z-10 min-w-0 overflow-hidden", fullPage ? "min-h-screen" : "h-full"].join(" ")}>
         <div
           className={[contentClass, "rounded-[2rem] transition", selectionClass(selectedElement === "layout")].join(" ")}
@@ -98,8 +101,7 @@ export function PagePreview({
                     linkShadowClasses[link.style?.shadow ?? config.linkStyle.shadow],
                     fontClasses[link.style?.font ?? config.theme.font],
                     (link.style?.shadow ?? config.linkStyle.shadow) === "glow" ? accent.glow : "",
-                    (link.style?.animation ?? config.linkStyle.animation) === "lift" ? "hover:-translate-y-1" : "",
-                    (link.style?.animation ?? config.linkStyle.animation) === "pulse-featured" && featured ? "animate-pulse" : "",
+                    getLinkAnimationClass(link.style?.animation ?? config.linkStyle.animation, featured),
                     featured ? getFeaturedClass(config) : "",
                     selectionClass(selected)
                   ].join(" ")}
@@ -127,6 +129,58 @@ export function PagePreview({
       </div>
     </section>
   );
+}
+
+function BackgroundMotionStyles() {
+  return (
+    <style>{`
+      @media (prefers-reduced-motion: no-preference) {
+        .bg-motion-slow-gradient-shift { animation: bg-gradient-shift var(--bg-motion-duration, 18s) ease-in-out infinite alternate; background-size: 140% 140%; }
+        .bg-motion-aurora-drift::before { content: ""; position: absolute; inset: -30%; pointer-events: none; background: radial-gradient(circle at 20% 30%, rgba(34,211,238,var(--bg-motion-alpha,.18)), transparent 30%), radial-gradient(circle at 80% 20%, rgba(217,70,239,var(--bg-motion-alpha,.18)), transparent 28%), radial-gradient(circle at 50% 80%, rgba(250,204,21,var(--bg-motion-alpha,.18)), transparent 32%); filter: blur(34px); animation: bg-aurora-drift var(--bg-motion-duration, 18s) ease-in-out infinite alternate; }
+        .bg-motion-spotlight-pan::before { content: ""; position: absolute; inset: 0; pointer-events: none; background: radial-gradient(circle at 15% 20%, rgba(255,255,255,var(--bg-motion-alpha,.18)), transparent 34%); mix-blend-mode: screen; animation: bg-spotlight-pan var(--bg-motion-duration, 18s) ease-in-out infinite alternate; }
+        .bg-motion-subtle-breathe { animation: bg-subtle-breathe var(--bg-motion-duration, 18s) ease-in-out infinite alternate; }
+        .bg-motion-star-twinkle::before { content: ""; position: absolute; inset: 0; pointer-events: none; background-image: radial-gradient(circle, rgba(255,255,255,var(--bg-motion-alpha,.18)) 0 1px, transparent 1px), radial-gradient(circle, rgba(186,230,253,var(--bg-motion-alpha,.18)) 0 1px, transparent 1px); background-position: 0 0, 17px 11px; background-size: 31px 31px, 47px 47px; animation: bg-star-twinkle var(--bg-motion-duration, 18s) ease-in-out infinite alternate; }
+        .link-animation-wiggle-featured { animation: link-wiggle-featured 1.8s ease-in-out infinite; }
+      }
+      @keyframes bg-gradient-shift { from { background-position: 0% 50%; } to { background-position: 100% 50%; } }
+      @keyframes bg-aurora-drift { from { transform: translate3d(-4%, -2%, 0) rotate(0deg) scale(1); opacity: .65; } to { transform: translate3d(5%, 3%, 0) rotate(10deg) scale(1.08); opacity: 1; } }
+      @keyframes bg-spotlight-pan { from { background-position: 0% 20%; opacity: .45; } to { background-position: 100% 70%; opacity: .9; } }
+      @keyframes bg-subtle-breathe { from { filter: saturate(1) brightness(1); } to { filter: saturate(var(--bg-motion-saturate, 1.12)) brightness(var(--bg-motion-brightness, 1.06)); } }
+      @keyframes bg-star-twinkle { from { opacity: .35; transform: translateY(0); } to { opacity: .85; transform: translateY(-10px); } }
+      @keyframes link-wiggle-featured { 0%, 100% { transform: rotate(0deg); } 25% { transform: rotate(-1deg); } 75% { transform: rotate(1deg); } }
+    `}</style>
+  );
+}
+
+function getBackgroundMotionClass(config: PageConfig) {
+  const motion = config.theme.backgroundMotion;
+  if (!motion || motion.preset === "none") return "";
+
+  return `bg-motion-${motion.preset}`;
+}
+
+function getBackgroundMotionStyle(config: PageConfig): CSSProperties | undefined {
+  const motion = config.theme.backgroundMotion;
+  if (!motion || motion.preset === "none") return undefined;
+
+  const speed = motion.speed ?? "normal";
+  const intensity = motion.intensity ?? "medium";
+  return {
+    "--bg-motion-duration": speed === "slow" ? "24s" : speed === "fast" ? "10s" : "16s",
+    "--bg-motion-alpha": intensity === "subtle" ? ".12" : intensity === "bold" ? ".3" : ".2",
+    "--bg-motion-saturate": intensity === "subtle" ? "1.06" : intensity === "bold" ? "1.22" : "1.14",
+    "--bg-motion-brightness": intensity === "subtle" ? "1.03" : intensity === "bold" ? "1.1" : "1.06"
+  } as CSSProperties;
+}
+
+function getLinkAnimationClass(animation: PageConfig["linkStyle"]["animation"], featured: boolean) {
+  if (animation === "lift") return "hover:-translate-y-1";
+  if (animation === "pulse-featured" && featured) return "animate-pulse";
+  if (animation === "hover-tilt") return "hover:-translate-y-1 hover:rotate-1 hover:scale-[1.015]";
+  if (animation === "hover-shine") return "relative overflow-hidden before:absolute before:inset-y-0 before:-left-1/2 before:w-1/3 before:skew-x-[-18deg] before:bg-white/30 before:opacity-0 before:transition-all before:duration-700 hover:before:left-[120%] hover:before:opacity-100";
+  if (animation === "press-pop") return "active:scale-[0.97] hover:scale-[1.01]";
+  if (animation === "wiggle-featured" && featured) return "link-animation-wiggle-featured";
+  return "";
 }
 
 function CreativeScene({ config }: { config: PageConfig }) {

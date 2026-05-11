@@ -29,7 +29,10 @@ export const sizePresets = ["sm", "md", "lg"] as const;
 export const linkShapes = ["square", "rounded", "pill"] as const;
 export const linkFills = ["solid", "glass", "outline", "soft"] as const;
 export const shadowPresets = ["none", "soft", "strong", "glow"] as const;
-export const animationPresets = ["none", "lift", "pulse-featured"] as const;
+export const animationPresets = ["none", "lift", "pulse-featured", "hover-tilt", "hover-shine", "press-pop", "wiggle-featured"] as const;
+export const backgroundMotionPresets = ["none", "slow-gradient-shift", "aurora-drift", "spotlight-pan", "subtle-breathe", "star-twinkle"] as const;
+export const motionIntensityPresets = ["subtle", "medium", "bold"] as const;
+export const motionSpeedPresets = ["slow", "normal", "fast"] as const;
 export const featuredStyles = ["none", "larger", "glow", "top-card", "badge"] as const;
 export const titleTreatments = ["normal", "wide", "tight", "gradient", "outline"] as const;
 export const bioTreatments = ["normal", "muted", "card", "caps"] as const;
@@ -176,6 +179,14 @@ export const CreativeLayerSchema = z
   })
   .strict();
 
+export const BackgroundMotionSchema = z
+  .object({
+    preset: z.enum(backgroundMotionPresets),
+    intensity: z.enum(motionIntensityPresets).default("medium"),
+    speed: z.enum(motionSpeedPresets).default("normal")
+  })
+  .strict();
+
 export const PageConfigSchema = z
   .object({
     version: z.literal(1),
@@ -198,6 +209,7 @@ export const PageConfigSchema = z
         mood: z.enum(moods),
         background: z.enum(backgroundPresets),
         backgroundCss: BackgroundCssSchema.optional(),
+        backgroundMotion: BackgroundMotionSchema.optional(),
         accent: z.enum(accentPresets),
         font: z.enum(fontPresets),
         textColor: SafeColorValue.optional(),
@@ -310,6 +322,14 @@ const ChangeCreativeLayerArgs = z
   })
   .strict();
 
+const ChangeBackgroundMotionArgs = z
+  .object({
+    preset: z.enum(backgroundMotionPresets),
+    intensity: z.enum(motionIntensityPresets).optional(),
+    speed: z.enum(motionSpeedPresets).optional()
+  })
+  .strict();
+
 export const FuzzFindResponseSchema = z
   .object({
     message: z.string().min(1).max(240),
@@ -364,6 +384,7 @@ export const AiToolCallSchema = z.discriminatedUnion("tool", [
     })
     .strict(),
   z.object({ tool: z.literal("change_theme"), args: OptionalThemeArgs }).strict(),
+  z.object({ tool: z.literal("change_background_motion"), args: ChangeBackgroundMotionArgs }).strict(),
   z.object({ tool: z.literal("change_typography"), args: OptionalTypographyArgs }).strict(),
   z.object({ tool: z.literal("change_layout"), args: OptionalLayoutArgs }).strict(),
   z.object({ tool: z.literal("change_profile"), args: OptionalProfileArgs }).strict(),
@@ -416,6 +437,7 @@ export type FuzzFindResponse = z.infer<typeof FuzzFindResponseSchema>;
 export type AiToolCall = z.infer<typeof AiToolCallSchema>;
 export type AppliedToolCall = z.infer<typeof AppliedToolCallSchema>;
 export type BackgroundCss = z.infer<typeof BackgroundCssSchema>;
+export type BackgroundMotion = z.infer<typeof BackgroundMotionSchema>;
 export type CreativeLayer = z.infer<typeof CreativeLayerSchema>;
 export type SceneElement = z.infer<typeof SceneElementSchema>;
 
@@ -438,6 +460,7 @@ export const samplePageConfig: PageConfig = {
     accent: "fuchsia",
     font: "bold",
     textColor: undefined,
+    backgroundMotion: undefined,
     surface: "glass",
     text: "light"
   },
@@ -492,6 +515,7 @@ export const defaultVisualConfig = {
     text: "dark" as const,
     textColor: undefined,
     backgroundCss: undefined,
+    backgroundMotion: undefined,
   },
   layout: {
     preset: "centered-stack" as const,

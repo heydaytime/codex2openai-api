@@ -16,6 +16,9 @@ import {
   linkFills,
   shadowPresets,
   animationPresets,
+  backgroundMotionPresets,
+  motionIntensityPresets,
+  motionSpeedPresets,
   featuredStyles,
   resetElementTargets,
   sceneElementKinds,
@@ -78,6 +81,16 @@ export const toolCatalog: ToolDefinition[] = [
       { name: "accent", type: "enum", required: false, description: "Primary accent color", values: accentPresets as unknown as string[] },
       { name: "surface", type: "enum", required: false, description: "Card/surface material", values: surfacePresets as unknown as string[] },
       { name: "text", type: "enum", required: false, description: "Text contrast level", values: textPresets as unknown as string[] },
+    ],
+  },
+  {
+    name: "change_background_motion",
+    description: "Animate the existing page background with safe enum-only CSS motion such as slow gradient shifts, aurora drift, spotlight panning, breathing color, or star twinkle. No raw CSS, scripts, URLs, or selectors are accepted.",
+    category: "animation",
+    args: [
+      { name: "preset", type: "enum", required: true, description: "Trusted background motion preset", values: backgroundMotionPresets as unknown as string[] },
+      { name: "intensity", type: "enum", required: false, description: "Motion/overlay strength", values: motionIntensityPresets as unknown as string[] },
+      { name: "speed", type: "enum", required: false, description: "Animation speed", values: motionSpeedPresets as unknown as string[] },
     ],
   },
   {

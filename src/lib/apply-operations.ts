@@ -83,6 +83,13 @@ function applyOne(config: PageConfig, toolCall: AiToolCall): PageConfig {
     case "change_theme":
       next.theme = { ...next.theme, ...toolCall.args };
       break;
+    case "change_background_motion":
+      next.theme.backgroundMotion = {
+        preset: toolCall.args.preset,
+        intensity: toolCall.args.intensity ?? "medium",
+        speed: toolCall.args.speed ?? "normal"
+      };
+      break;
     case "change_typography":
       next.theme = { ...next.theme, ...toolCall.args };
       break;

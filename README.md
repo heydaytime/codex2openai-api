@@ -114,8 +114,8 @@ The embedding cache is written to `.cache/preset-embeddings.json`. It rebuilds w
 
 Current preset validation target:
 
-- 216 presets.
-- 216 unique operation sets.
+- 224 presets.
+- 224 unique operation sets.
 - 0 duplicate operation groups.
 - 0 invalid preset operations.
 
@@ -169,6 +169,7 @@ Current tools include:
 - `fuzz_find`
 - `apply_preset`
 - `change_background`
+- `change_background_motion`
 - `change_theme`
 - `change_typography`
 - `change_layout`
@@ -185,11 +186,12 @@ Current tools include:
 Important capabilities:
 
 - Change full-page theme/background/font/surface/text.
+- Animate backgrounds through safe preset motion such as aurora drift, gradient shift, spotlight pan, subtle breathing, or star twinkle.
 - Change title font and title treatment.
 - Change description font and treatment.
 - Change layout, spacing, padding, alignment, and width.
 - Change all links globally.
-- Override a specific link’s shape, fill, size, shadow, animation, and font.
+- Override a specific link’s shape, fill, size, shadow, animation, hover motion, and font.
 - Feature existing links.
 - Reorder existing links.
 - Reset a specific element or reset all visual state.

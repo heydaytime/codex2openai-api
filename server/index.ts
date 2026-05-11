@@ -11,12 +11,15 @@ import {
   avatarStyles,
   bioTreatments,
   backgroundPresets,
+  backgroundMotionPresets,
   featuredStyles,
   fontPresets,
   layoutPresets,
   linkFills,
   linkShapes,
   moods,
+  motionIntensityPresets,
+  motionSpeedPresets,
   paddingPresets,
   shadowPresets,
   sizePresets,
@@ -610,6 +613,8 @@ function describePlannedTool(toolCall: AiEditResponse["tool_calls"][number]) {
       return toolCall.args.preset ? `Set background to ${toolCall.args.preset}.` : "Set a custom gradient background.";
     case "change_theme":
       return `Change theme: ${Object.entries(toolCall.args).map(([k, v]) => `${k}=${v}`).join(", ")}.`;
+    case "change_background_motion":
+      return `Animate background: ${Object.entries(toolCall.args).map(([k, v]) => `${k}=${v}`).join(", ")}.`;
     case "change_typography":
       return `Change typography: ${Object.entries(toolCall.args).map(([k, v]) => `${k}=${v}`).join(", ")}.`;
     case "change_layout":
@@ -1139,6 +1144,7 @@ Base tools and values:
 ${presetResults.length > 0 ? "- apply_preset id=one of the preset ids listed above only" : ""}
 - change_background preset=${JSON.stringify(backgroundPresets.filter((p) => p !== "custom"))} OR css={backgroundColor?,backgroundImage?,backgroundSize?,backgroundPosition?,backgroundRepeat?}
 - change_theme optional mood=${JSON.stringify(moods)}, accent=${JSON.stringify(accentPresets)}, surface=${JSON.stringify(surfacePresets)}, text=${JSON.stringify(textPresets)}
+- change_background_motion preset=${JSON.stringify(backgroundMotionPresets)}, optional intensity=${JSON.stringify(motionIntensityPresets)}, speed=${JSON.stringify(motionSpeedPresets)}. Use for requests like dynamic background, animated background, moving gradient, aurora, spotlight pan, breathing glow, twinkling stars, make static background move.
 - change_typography optional font=${JSON.stringify(fontPresets)}, text=${JSON.stringify(textPresets)}, textColor=hex/rgb/rgba/hsl/hsla
 - change_layout optional preset=${JSON.stringify(layoutPresets)}, spacing=${JSON.stringify(spacingPresets)}, padding=${JSON.stringify(paddingPresets)}, alignment=${JSON.stringify(alignmentPresets)}, width=${JSON.stringify(widthPresets)}
 - change_profile optional bio=string under 240 chars, avatarStyle=${JSON.stringify(avatarStyles)}, profileSize=${JSON.stringify(sizePresets)}, titleFont=${JSON.stringify(fontPresets)}, bioFont=${JSON.stringify(fontPresets)}, titleTreatment=${JSON.stringify(titleTreatments)}, bioTreatment=${JSON.stringify(bioTreatments)}

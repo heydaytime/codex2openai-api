@@ -64,6 +64,68 @@ const linkLooks = [
   ["neon-outline-links", "Neon Outline Links", "Creates outlined links with glow and lift animation, matching cyberpunk, music, rave, gamer, and RGB prompts without needing custom CSS.", ["links", "neon", "outline", "glow", "music", "rgb"], "pill", "outline", "md", "glow", "lift"]
 ] as const;
 
+const dynamicBackgroundMotions: PresetTool[] = [
+  {
+    id: "dynamic-aurora-background-motion",
+    title: "Dynamic Aurora Background Motion",
+    description: "Makes a static page background feel alive with a slow safe aurora drift: soft cyan, magenta, and gold light clouds move behind the profile and links. Use for animated background, dynamic CSS, moving background, living gradient, aurora, dreamy motion, make the page less static, add subtle background animation, or ambient motion prompts.",
+    tags: ["dynamic", "animated background", "moving gradient", "aurora", "ambient", "motion", "css", "safe"],
+    operations: [{ tool: "change_background_motion", args: { preset: "aurora-drift", intensity: "medium", speed: "slow" } }]
+  },
+  {
+    id: "slow-gradient-shift-background-motion",
+    title: "Slow Gradient Shift Background Motion",
+    description: "Animates the current gradient background by slowly shifting its position so the page changes gently over time without adding clutter. Best for make background dynamic, animated gradient, color flow, gradient movement, subtle CSS animation, modern creator page motion, and non-distracting movement requests.",
+    tags: ["gradient", "animated gradient", "shift", "background motion", "subtle", "dynamic", "color flow"],
+    operations: [{ tool: "change_background_motion", args: { preset: "slow-gradient-shift", intensity: "subtle", speed: "slow" } }]
+  },
+  {
+    id: "spotlight-pan-background-motion",
+    title: "Spotlight Pan Background Motion",
+    description: "Adds a safe CSS spotlight that slowly pans across the page, creating stage lighting and premium movement while keeping links readable. Use for spotlight, stage, luxury motion, performer page, dynamic lighting, hoverless page motion, cinematic background, and make it feel more alive prompts.",
+    tags: ["spotlight", "stage", "cinematic", "lighting", "premium", "performer", "dynamic background"],
+    operations: [{ tool: "change_background_motion", args: { preset: "spotlight-pan", intensity: "medium", speed: "normal" } }]
+  },
+  {
+    id: "twinkling-stars-background-motion",
+    title: "Twinkling Stars Background Motion",
+    description: "Turns static starry or dark pages into a lightly twinkling animated background with safe CSS sparkle movement. Best for starry sky, space, cosmic, night, magical, twinkle, animated stars, background sparkle, dreamy creator, and gaming profile prompts.",
+    tags: ["stars", "twinkle", "space", "cosmic", "sparkle", "night", "animated background"],
+    operations: [{ tool: "change_background_motion", args: { preset: "star-twinkle", intensity: "medium", speed: "slow" } }]
+  }
+];
+
+const dynamicLinkMotions: PresetTool[] = [
+  {
+    id: "hover-shine-link-motion",
+    title: "Hover Shine Link Motion",
+    description: "Adds a glossy shine sweep when users hover over links, making buttons feel interactive, polished, clickable, and premium without raw CSS. Use for hover effect, shine on hover, dynamic buttons, interactive links, glossy CTA, button shimmer, safe CSS hover animation, and make links do something on hover prompts.",
+    tags: ["hover", "shine", "links", "buttons", "interactive", "cta", "dynamic css", "shimmer"],
+    operations: [{ tool: "change_link_appearance", args: { animation: "hover-shine" } }]
+  },
+  {
+    id: "hover-tilt-link-motion",
+    title: "Hover Tilt Link Motion",
+    description: "Makes links gently lift, rotate, and scale on hover so the page feels tactile and responsive. Great for hover animation, buttons move on hover, playful links, interactive profile, dynamic CSS transform, creator page motion, and make it less static requests.",
+    tags: ["hover", "tilt", "lift", "scale", "interactive", "links", "motion", "buttons"],
+    operations: [{ tool: "change_link_appearance", args: { animation: "hover-tilt" } }]
+  },
+  {
+    id: "press-pop-link-motion",
+    title: "Press Pop Link Motion",
+    description: "Adds responsive press and tap feedback so links compress slightly when clicked and pop on hover, improving mobile and desktop interactivity. Use for tap feedback, press animation, tactile buttons, mobile-friendly motion, interactive links, button response, and safe dynamic CSS prompts.",
+    tags: ["press", "tap", "pop", "mobile", "feedback", "interactive", "links", "buttons"],
+    operations: [{ tool: "change_link_appearance", args: { animation: "press-pop" } }]
+  },
+  {
+    id: "featured-wiggle-link-motion",
+    title: "Featured Wiggle Link Motion",
+    description: "Gives only featured links a small repeating wiggle so an important CTA catches attention without shaking every button. Best for feature my merch, make one link move, animated CTA, draw attention, important link, buy button wiggle, and non-redundant featured motion prompts.",
+    tags: ["featured", "wiggle", "cta", "attention", "merch", "important link", "animation"],
+    operations: [{ tool: "change_link_appearance", args: { animation: "wiggle-featured" } }]
+  }
+];
+
 const outcomeKits: PresetTool[] = [
   {
     id: "sell-more-products-cta-kit",
@@ -311,6 +373,8 @@ export const presetTools: PresetTool[] = [
   ...sceneStyles.map(scenePreset),
   ...fullKits.map(fullKitPreset),
   ...linkLooks.map(linkPreset),
+  ...dynamicBackgroundMotions,
+  ...dynamicLinkMotions,
   ...outcomeKits,
   ...repairAndLayoutKits,
   ...platformKits,
