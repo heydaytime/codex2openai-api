@@ -1,4 +1,4 @@
-# Codex OpenAPI Wrapper
+# Codex OpenAI API Wrapper
 
 OpenAI-compatible local API server backed by your existing Codex ChatGPT login, with an optional local Next.js chat frontend.
 
