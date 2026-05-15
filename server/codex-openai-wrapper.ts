@@ -3,6 +3,7 @@ import { getCodexAuthHeaders } from "./codex-auth";
 const PORT = Number(process.env.CODEX_WRAPPER_PORT ?? 4010);
 const CODEX_BASE_URL = (process.env.CODEX_BASE_URL ?? "https://chatgpt.com/backend-api/codex").replace(/\/$/, "");
 const DEFAULT_MODEL = process.env.CODEX_DEFAULT_MODEL ?? "gpt-5.5";
+const DEFAULT_INSTRUCTIONS = process.env.CODEX_DEFAULT_INSTRUCTIONS ?? "You are a helpful local chat assistant. Answer the user's message directly and naturally.";
 const CONFIGURED_MODELS = unique([
   DEFAULT_MODEL,
   ...(process.env.CODEX_MODELS?.split(",").map((value) => value.trim()).filter(Boolean) ?? ["gpt-5.5", "gpt-5.4"]),
@@ -80,7 +81,7 @@ async function handleChatCompletions(request: Request) {
   if (body.stream) return streamChatCompletion(upstream, payload.model);
 
   const responseText = await upstream.text();
-  const text = extractTextFromResponsesPayload(parseMaybeSse(responseText));
+  const text = cleanAssistantText(extractTextFromResponsesPayload(parseMaybeSse(responseText)), true);
   return json({
     id: `chatcmpl_${crypto.randomUUID()}`,
     object: "chat.completion",
@@ -131,7 +132,7 @@ function chatToResponsesPayload(body: ChatCompletionRequest): Record<string, unk
 
   const payload: Record<string, unknown> & { model: string } = {
     model: body.model ?? DEFAULT_MODEL,
-    instructions: instructions || undefined,
+    instructions: instructions || DEFAULT_INSTRUCTIONS,
     input,
     stream: true,
     store: false,
@@ -193,7 +194,10 @@ function streamChatCompletion(upstream: Response, modelName: string) {
           if (!data || data === "[DONE]") continue;
           const parsed = safeJson(data);
           const delta = extractStreamingTextDelta(parsed);
-          if (delta) controller.enqueue(encoder.encode(`data: ${JSON.stringify(chatChunk(id, modelName, { content: delta }))}\n\n`));
+          if (delta) {
+            const cleaned = cleanAssistantText(delta, false);
+            if (cleaned) controller.enqueue(encoder.encode(`data: ${JSON.stringify(chatChunk(id, modelName, { content: cleaned }))}\n\n`));
+          }
         }
       }
 
@@ -279,6 +283,11 @@ function extractOutputItemText(item: unknown): string {
     const p = part as { text?: unknown };
     return typeof p.text === "string" ? p.text : "";
   }).join("");
+}
+
+function cleanAssistantText(text: string, trimLeading: boolean) {
+  const cleaned = text.replace(/<system-reminder>[\s\S]*?<\/system-reminder>/gi, "");
+  return trimLeading ? cleaned.trimStart() : cleaned;
 }
 
 function model(id: string) {

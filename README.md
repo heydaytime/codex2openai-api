@@ -1,6 +1,6 @@
 # Codex OpenAPI Wrapper
 
-OpenAI-compatible local API server backed by your existing Codex ChatGPT login.
+OpenAI-compatible local API server backed by your existing Codex ChatGPT login, with an optional local Next.js chat frontend.
 
 This lets any OpenAI-compatible client talk to a local `/v1/chat/completions` or `/v1/responses` endpoint while the wrapper calls Codex internally through your local `~/.codex/auth.json` credentials.
 
@@ -16,6 +16,8 @@ This lets any OpenAI-compatible client talk to a local `/v1/chat/completions` or
 - Supports streaming chat completions using OpenAI-style SSE chunks.
 - Forces `store: false` on forwarded requests.
 - Sends full request context each call; the wrapper does not keep server-side conversation state.
+- Includes a minimalist Next.js 16 + Tailwind v4 chat UI.
+- Stores frontend chat history locally in browser SQLite on your machine.
 
 ## Requirements
 
@@ -52,6 +54,43 @@ Default server:
 
 ```txt
 http://localhost:4010
+```
+
+## Local Chat Frontend
+
+Run the wrapper and frontend together:
+
+```bash
+bun run dev
+```
+
+Then open:
+
+```txt
+http://localhost:3000
+```
+
+The frontend talks directly to the wrapper over the OpenAI-compatible API:
+
+- `GET /v1/models` for model selection.
+- `POST /v1/chat/completions` with `stream: true` for chat.
+
+No login is required in the frontend. Codex auth stays in the local wrapper process through `~/.codex/auth.json`.
+
+### Frontend History
+
+Chat history is stored client-side in browser SQLite using `sql.js` and IndexedDB persistence. The SQLite WASM asset is served locally from:
+
+```txt
+public/sql-wasm-browser.wasm
+```
+
+If browser SQLite cannot start, the UI falls back to `localStorage` so local chats still work.
+
+Configure a non-default wrapper URL if needed:
+
+```bash
+NEXT_PUBLIC_CODEX_WRAPPER_URL="http://localhost:4010" bun run frontend:dev
 ```
 
 ## Test
@@ -258,9 +297,12 @@ Forwarded Codex requests always include:
 ## Scripts
 
 ```bash
-bun run codex:wrapper  # start server
-bun run codex:test     # smoke-test models, non-streaming, and streaming
-bun run typecheck      # TypeScript check
+bun run dev              # start wrapper and frontend
+bun run codex:wrapper    # start wrapper only
+bun run frontend:dev     # start frontend only
+bun run frontend:build   # build frontend
+bun run codex:test       # smoke-test models, non-streaming, and streaming
+bun run typecheck        # TypeScript check
 ```
 
 ## Limitations
@@ -276,4 +318,7 @@ bun run typecheck      # TypeScript check
 server/codex-auth.ts             Codex auth loading and token refresh
 server/codex-openai-wrapper.ts   OpenAI-compatible HTTP server
 scripts/test-codex-wrapper.ts    Manual smoke test
+app/page.tsx                     Local chat frontend
+lib/openai-client.ts             Browser OpenAI-compatible streaming client
+lib/client-db.ts                 Client-side SQLite chat history
 ```

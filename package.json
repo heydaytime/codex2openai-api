@@ -4,17 +4,35 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "start": "bun run server/codex-openai-wrapper.ts",
-    "dev": "bun run --watch server/codex-openai-wrapper.ts",
+    "start": "bun run codex:wrapper",
+    "dev": "concurrently -n wrapper,frontend -c blue,white \"bun run codex:wrapper:dev\" \"bun run frontend:dev\"",
+    "frontend:dev": "next dev -p 3000",
+    "frontend:build": "next build",
+    "frontend:start": "next start -p 3000",
     "codex:wrapper": "bun run server/codex-openai-wrapper.ts",
+    "codex:wrapper:dev": "bun run --watch server/codex-openai-wrapper.ts",
     "codex:test": "bun run scripts/test-codex-wrapper.ts",
     "typecheck": "tsc --noEmit",
-    "test": "bun run scripts/test-codex-wrapper.ts"
+    "test": "bun run scripts/test-codex-wrapper.ts",
+    "build": "bun run typecheck && bun run frontend:build"
   },
-  "dependencies": {},
+  "dependencies": {
+    "@tailwindcss/postcss": "^4.3.0",
+    "concurrently": "^9.2.1",
+    "next": "^16.2.6",
+    "react": "^19.2.6",
+    "react-dom": "^19.2.6",
+    "react-markdown": "^10.1.0",
+    "remark-gfm": "^4.0.1",
+    "sql.js": "^1.14.1",
+    "tailwindcss": "^4.3.0"
+  },
   "devDependencies": {
     "@types/bun": "^1.3.13",
-    "@types/node": "latest",
-    "typescript": "latest"
+    "@types/node": "^25.6.2",
+    "@types/react": "^19.2.14",
+    "@types/react-dom": "^19.2.3",
+    "@types/sql.js": "^1.4.11",
+    "typescript": "^6.0.3"
   }
 }
