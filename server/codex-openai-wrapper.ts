@@ -30,6 +30,16 @@ type ChatCompletionRequest = {
   store?: boolean;
 };
 
+type ChatCompletionTool = {
+  type?: string;
+  function?: {
+    name?: string;
+    description?: string;
+    parameters?: unknown;
+    strict?: boolean;
+  };
+};
+
 const server = Bun.serve({
   port: PORT,
   async fetch(request) {
@@ -81,14 +91,24 @@ async function handleChatCompletions(request: Request) {
   if (body.stream) return streamChatCompletion(upstream, payload.model);
 
   const responseText = await upstream.text();
-  const text = cleanAssistantText(extractTextFromResponsesPayload(parseMaybeSse(responseText)), true);
+  const parsedPayload = parseMaybeSse(responseText);
+  const text = cleanAssistantText(extractTextFromResponsesPayload(parsedPayload), true);
+  const toolCalls = extractToolCallsFromResponsesPayload(parsedPayload);
   return json({
     id: `chatcmpl_${crypto.randomUUID()}`,
     object: "chat.completion",
     created: Math.floor(Date.now() / 1000),
     model: payload.model,
     choices: [
-      { index: 0, message: { role: "assistant", content: text }, finish_reason: "stop" },
+      {
+        index: 0,
+        message: {
+          role: "assistant",
+          content: toolCalls.length > 0 && !text ? null : text,
+          ...(toolCalls.length > 0 ? { tool_calls: toolCalls } : {}),
+        },
+        finish_reason: toolCalls.length > 0 ? "tool_calls" : "stop",
+      },
     ],
     usage: null,
   });
@@ -141,8 +161,8 @@ function chatToResponsesPayload(body: ChatCompletionRequest): Record<string, unk
   const maxOutputTokens = body.max_completion_tokens ?? body.max_tokens;
   if (maxOutputTokens) payload.max_output_tokens = maxOutputTokens;
   if (body.temperature !== undefined) payload.temperature = body.temperature;
-  if (body.tools) payload.tools = body.tools;
-  if (body.tool_choice) payload.tool_choice = body.tool_choice;
+  if (body.tools) payload.tools = chatToolsToResponsesTools(body.tools);
+  if (body.tool_choice) payload.tool_choice = chatToolChoiceToResponsesToolChoice(body.tool_choice);
   if (body.reasoning_effort) {
     payload.reasoning = { effort: body.reasoning_effort, summary: "auto" };
     payload.include = ["reasoning.encrypted_content"];
@@ -152,6 +172,44 @@ function chatToResponsesPayload(body: ChatCompletionRequest): Record<string, unk
   }
 
   return payload;
+}
+
+function chatToolsToResponsesTools(tools: unknown[]): unknown[] {
+  return tools.map((tool, index) => {
+    const value = tool as ChatCompletionTool;
+    if (value?.type === "function" && value.function?.name) {
+      return {
+        type: "function",
+        name: value.function.name,
+        ...(value.function.description ? { description: value.function.description } : {}),
+        parameters: value.function.parameters ?? { type: "object", properties: {} },
+        ...(value.function.strict !== undefined ? { strict: value.function.strict } : {}),
+      };
+    }
+
+    const raw = tool as Record<string, unknown> | null;
+    if (raw?.type === "function" && typeof raw.name === "string") return raw;
+
+    throw new Error(`Unsupported tool schema at tools[${index}]. Expected Chat Completions function tool or Responses function tool.`);
+  });
+}
+
+function chatToolChoiceToResponsesToolChoice(toolChoice: unknown): unknown {
+  if (typeof toolChoice === "string") return toolChoice;
+  if (!toolChoice || typeof toolChoice !== "object") return toolChoice;
+
+  const value = toolChoice as {
+    type?: string;
+    function?: { name?: string };
+    name?: string;
+  };
+
+  if (value.type === "function" && value.function?.name) {
+    return { type: "function", name: value.function.name };
+  }
+
+  if (value.type === "function" && value.name) return value;
+  return toolChoice;
 }
 
 function responseFormatToText(responseFormat: unknown) {
@@ -254,6 +312,53 @@ function extractTextFromResponsesPayload(payload: unknown): string {
   if (typeof direct?.output_text === "string") return direct.output_text;
   if (Array.isArray(direct?.output)) return direct.output.map(extractOutputItemText).join("");
   return extractTextDelta(payload);
+}
+
+function extractToolCallsFromResponsesPayload(payload: unknown): Array<{
+  id: string;
+  type: "function";
+  function: { name: string; arguments: string };
+}> {
+  const calls: Array<{
+    id: string;
+    type: "function";
+    function: { name: string; arguments: string };
+  }> = [];
+
+  const visit = (value: unknown) => {
+    if (!value || typeof value !== "object") return;
+    if (Array.isArray(value)) {
+      for (const item of value) visit(item);
+      return;
+    }
+
+    const item = value as Record<string, unknown>;
+    const type = String(item.type ?? "");
+    const name = typeof item.name === "string" ? item.name : undefined;
+    if (type.includes("function_call") && name) {
+      const callId = String(item.call_id ?? item.id ?? `call_${calls.length + 1}`);
+      const rawArgs = item.arguments;
+      const args = typeof rawArgs === "string" ? rawArgs : JSON.stringify(rawArgs ?? {});
+      calls.push({
+        id: callId,
+        type: "function",
+        function: { name, arguments: args },
+      });
+    }
+
+    for (const nestedKey of ["response", "output", "item"]) {
+      if (nestedKey in item) visit(item[nestedKey]);
+    }
+  };
+
+  visit(payload);
+  const seen = new Set<string>();
+  return calls.filter((call) => {
+    const key = `${call.id}:${call.function.name}:${call.function.arguments}`;
+    if (seen.has(key)) return false;
+    seen.add(key);
+    return true;
+  });
 }
 
 function extractTextDelta(event: unknown): string {
