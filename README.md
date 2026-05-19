@@ -104,7 +104,7 @@ bun run codex:test
 Expected output looks like:
 
 ```txt
-models [ "gpt-5.5", "gpt-5.4" ]
+models [ "gpt-5.5", "GPT-5.3-Codex-Spark" ]
 non_streaming 200 pong
 streaming 200 stream-pong
 ```
@@ -227,7 +227,7 @@ Choose the model per request:
 Configure the exposed model list:
 
 ```bash
-CODEX_MODELS="gpt-5.5,gpt-5.4" bun run codex:wrapper
+CODEX_MODELS="gpt-5.5,GPT-5.3-Codex-Spark" bun run codex:wrapper
 ```
 
 Configure the default model:
@@ -239,10 +239,7 @@ CODEX_DEFAULT_MODEL="gpt-5.5" bun run codex:wrapper
 Known working model from manual smoke test:
 
 - `gpt-5.5`
-
-Known available fallback from manual smoke test:
-
-- `gpt-5.4`
+- `GPT-5.3-Codex-Spark`
 
 Some Codex-branded models can be rejected by ChatGPT-account auth depending on account entitlements. If a model is rejected, the wrapper returns the upstream Codex error.
 
@@ -253,7 +250,7 @@ Some Codex-branded models can be rejected by ChatGPT-account auth depending on a
 | `CODEX_WRAPPER_PORT` | `4010` | Local wrapper port. |
 | `CODEX_BASE_URL` | `https://chatgpt.com/backend-api/codex` | Codex backend base URL. |
 | `CODEX_DEFAULT_MODEL` | `gpt-5.5` | Default model when request omits `model`. |
-| `CODEX_MODELS` | `gpt-5.5,gpt-5.4` | Comma-separated list exposed by `/v1/models`. |
+| `CODEX_MODELS` | `gpt-5.5,GPT-5.3-Codex-Spark` | Comma-separated list exposed by `/v1/models`. |
 | `CODEX_AUTH_FILE` | `~/.codex/auth.json` | Codex auth file path. |
 | `CODEX_REFRESH_TOKEN_URL` | `https://auth.openai.com/oauth/token` | OAuth refresh endpoint override. |
 | `CODEX_TEST_MODEL` | `gpt-5.5` | Model used by `bun run codex:test`. |

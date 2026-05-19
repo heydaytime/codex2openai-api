@@ -3,10 +3,12 @@ import { getCodexAuthHeaders } from "./codex-auth";
 const PORT = Number(process.env.CODEX_WRAPPER_PORT ?? 4010);
 const CODEX_BASE_URL = (process.env.CODEX_BASE_URL ?? "https://chatgpt.com/backend-api/codex").replace(/\/$/, "");
 const DEFAULT_MODEL = process.env.CODEX_DEFAULT_MODEL ?? "gpt-5.5";
+const SPARK_MODEL = "GPT-5.3-Codex-Spark";
+const MODEL_ALIASES: Record<string, string> = { [SPARK_MODEL]: "gpt-5.3-codex" };
 const DEFAULT_INSTRUCTIONS = process.env.CODEX_DEFAULT_INSTRUCTIONS ?? "You are a helpful local chat assistant. Answer the user's message directly and naturally.";
 const CONFIGURED_MODELS = unique([
   DEFAULT_MODEL,
-  ...(process.env.CODEX_MODELS?.split(",").map((value) => value.trim()).filter(Boolean) ?? ["gpt-5.5", "gpt-5.4"]),
+  ...(process.env.CODEX_MODELS?.split(",").map((value) => value.trim()).filter(Boolean) ?? ["gpt-5.5", SPARK_MODEL]),
 ]);
 
 type ChatMessage = {
@@ -74,7 +76,7 @@ async function handleModels() {
 
 async function handleResponses(request: Request) {
   const body = await request.json() as Record<string, unknown>;
-  const payload = { ...body, model: body.model ?? DEFAULT_MODEL, store: false };
+  const payload = { ...body, model: upstreamModelName(body.model), store: false };
   const upstream = await fetchCodexResponses(payload);
   return withCors(new Response(upstream.body, { status: upstream.status, headers: cloneSseOrJsonHeaders(upstream.headers) }));
 }
@@ -82,13 +84,14 @@ async function handleResponses(request: Request) {
 async function handleChatCompletions(request: Request) {
   const body = await request.json() as ChatCompletionRequest;
   const payload = chatToResponsesPayload(body);
+  const responseModel = publicModelName(body.model);
   const upstream = await fetchCodexResponses(payload);
 
   if (!upstream.ok) {
     return withCors(new Response(upstream.body, { status: upstream.status, headers: cloneJsonHeaders(upstream.headers) }));
   }
 
-  if (body.stream) return streamChatCompletion(upstream, payload.model);
+  if (body.stream) return streamChatCompletion(upstream, responseModel);
 
   const responseText = await upstream.text();
   const parsedPayload = parseMaybeSse(responseText);
@@ -98,7 +101,7 @@ async function handleChatCompletions(request: Request) {
     id: `chatcmpl_${crypto.randomUUID()}`,
     object: "chat.completion",
     created: Math.floor(Date.now() / 1000),
-    model: payload.model,
+    model: responseModel,
     choices: [
       {
         index: 0,
@@ -151,7 +154,7 @@ function chatToResponsesPayload(body: ChatCompletionRequest): Record<string, unk
     }));
 
   const payload: Record<string, unknown> & { model: string } = {
-    model: body.model ?? DEFAULT_MODEL,
+    model: upstreamModelName(body.model),
     instructions: instructions || DEFAULT_INSTRUCTIONS,
     input,
     stream: true,
@@ -172,6 +175,15 @@ function chatToResponsesPayload(body: ChatCompletionRequest): Record<string, unk
   }
 
   return payload;
+}
+
+function publicModelName(modelName: unknown) {
+  return typeof modelName === "string" && modelName ? modelName : DEFAULT_MODEL;
+}
+
+function upstreamModelName(modelName: unknown) {
+  const requested = publicModelName(modelName);
+  return MODEL_ALIASES[requested] ?? requested;
 }
 
 function chatToolsToResponsesTools(tools: unknown[]): unknown[] {
