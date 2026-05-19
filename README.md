@@ -255,6 +255,40 @@ Some Codex-branded models can be rejected by ChatGPT-account auth depending on a
 | `CODEX_REFRESH_TOKEN_URL` | `https://auth.openai.com/oauth/token` | OAuth refresh endpoint override. |
 | `CODEX_TEST_MODEL` | `gpt-5.5` | Model used by `bun run codex:test`. |
 | `CODEX_WRAPPER_URL` | `http://localhost:4010` | Test script target URL. |
+| `CODEX_AUDIT_DB` | `data/codex-wrapper.sqlite` | SQLite DB file for request/response audit logs. |
+| `CODEX_AUDIT_DISABLED` | unset | Set to `1` or `true` to disable audit logging. |
+
+## Audit Logging
+
+The wrapper stores each API call in SQLite by default. It logs request metadata, original request JSON, transformed upstream request JSON, response JSON/text, status, timing, and upstream errors.
+
+Default DB path:
+
+```txt
+data/codex-wrapper.sqlite
+```
+
+Configure a fixed production path:
+
+```bash
+CODEX_AUDIT_DB="/home/heyday/codex2openai-api/data/codex-wrapper.sqlite" bun run codex:wrapper
+```
+
+Query recent calls:
+
+```bash
+sqlite3 data/codex-wrapper.sqlite \
+  "select created_at, path, request_model, upstream_model, stream, status, duration_ms from api_calls order by created_at desc limit 20;"
+```
+
+Inspect one full call:
+
+```bash
+sqlite3 data/codex-wrapper.sqlite \
+  "select request_json, upstream_request_json, response_text, error_json from api_calls order by created_at desc limit 1;"
+```
+
+The audit DB can contain full prompts, responses, tool payloads, and pasted secrets. Treat it like sensitive data.
 
 ## Auth Behavior
 

@@ -1,4 +1,5 @@
 import { getCodexAuthHeaders } from "./codex-auth";
+import { auditDbPath, createAuditCall, finishAuditCall, updateAuditCall } from "./audit-db";
 
 const PORT = Number(process.env.CODEX_WRAPPER_PORT ?? 4010);
 const CODEX_BASE_URL = (process.env.CODEX_BASE_URL ?? "https://chatgpt.com/backend-api/codex").replace(/\/$/, "");
@@ -47,57 +48,87 @@ const server = Bun.serve({
   async fetch(request) {
     const url = new URL(request.url);
     if (request.method === "OPTIONS") return withCors(new Response(null, { status: 204 }));
+    const audit = createAuditCall({
+      method: request.method,
+      path: url.pathname,
+      clientIp: clientIp(request),
+      userAgent: request.headers.get("user-agent"),
+    });
 
     try {
-      if (url.pathname === "/health") return json({ ok: true, defaultModel: DEFAULT_MODEL, codexBaseUrl: CODEX_BASE_URL });
-      if (url.pathname === "/v1/models" && request.method === "GET") return handleModels();
-      if (url.pathname === "/v1/responses" && request.method === "POST") return handleResponses(request);
-      if (url.pathname === "/v1/chat/completions" && request.method === "POST") return handleChatCompletions(request);
-      return json(openAiError("not_found", `Unknown endpoint: ${url.pathname}`), 404);
+      if (url.pathname === "/health") {
+        const payload = { ok: true, defaultModel: DEFAULT_MODEL, codexBaseUrl: CODEX_BASE_URL, auditDbPath: auditDbPath() };
+        finishAuditCall(audit, { status: 200, ok: true, response_json: payload });
+        return json(payload);
+      }
+      if (url.pathname === "/v1/models" && request.method === "GET") return handleModels(audit);
+      if (url.pathname === "/v1/responses" && request.method === "POST") return handleResponses(request, audit);
+      if (url.pathname === "/v1/chat/completions" && request.method === "POST") return handleChatCompletions(request, audit);
+      const payload = openAiError("not_found", `Unknown endpoint: ${url.pathname}`);
+      finishAuditCall(audit, { status: 404, ok: false, error_json: payload });
+      return json(payload, 404);
     } catch (error) {
-      return json(openAiError("server_error", error instanceof Error ? error.message : "Unknown error"), 500);
+      const payload = openAiError("server_error", error instanceof Error ? error.message : "Unknown error");
+      finishAuditCall(audit, { status: 500, ok: false, error_json: payload });
+      return json(payload, 500);
     }
   },
 });
 
 console.log(`Codex OpenAI-compatible wrapper listening on http://localhost:${server.port}`);
 
-async function handleModels() {
+async function handleModels(audit: ReturnType<typeof createAuditCall>) {
   const headers = await codexHeaders();
   const upstream = await fetch(`${CODEX_BASE_URL}/models`, { headers });
-  if (upstream.ok) return withCors(new Response(upstream.body, { status: upstream.status, headers: cloneJsonHeaders(upstream.headers) }));
+  if (upstream.ok) return auditResponse(audit, upstream, cloneJsonHeaders(upstream.headers));
 
   // The Codex backend may not expose a public model-list endpoint. Keep the wrapper OpenAI-compatible.
-  return json({
+  const payload = {
     object: "list",
     data: CONFIGURED_MODELS.map(model),
-  });
+  };
+  finishAuditCall(audit, { status: 200, ok: true, response_json: payload });
+  return json(payload);
 }
 
-async function handleResponses(request: Request) {
+async function handleResponses(request: Request, audit: ReturnType<typeof createAuditCall>) {
   const body = await request.json() as Record<string, unknown>;
   const payload = { ...body, model: upstreamModelName(body.model), store: false };
+  updateAuditCall(audit, {
+    request_model: publicModelName(body.model),
+    upstream_model: String(payload.model),
+    stream: Boolean(body.stream),
+    request_json: body,
+    upstream_request_json: payload,
+  });
   const upstream = await fetchCodexResponses(payload);
-  return withCors(new Response(upstream.body, { status: upstream.status, headers: cloneSseOrJsonHeaders(upstream.headers) }));
+  return auditResponse(audit, upstream, cloneSseOrJsonHeaders(upstream.headers), !upstream.ok);
 }
 
-async function handleChatCompletions(request: Request) {
+async function handleChatCompletions(request: Request, audit: ReturnType<typeof createAuditCall>) {
   const body = await request.json() as ChatCompletionRequest;
   const payload = chatToResponsesPayload(body);
   const responseModel = publicModelName(body.model);
+  updateAuditCall(audit, {
+    request_model: responseModel,
+    upstream_model: payload.model,
+    stream: Boolean(body.stream),
+    request_json: body,
+    upstream_request_json: payload,
+  });
   const upstream = await fetchCodexResponses(payload);
 
   if (!upstream.ok) {
-    return withCors(new Response(upstream.body, { status: upstream.status, headers: cloneJsonHeaders(upstream.headers) }));
+    return auditResponse(audit, upstream, cloneJsonHeaders(upstream.headers), true);
   }
 
-  if (body.stream) return streamChatCompletion(upstream, responseModel);
+  if (body.stream) return streamChatCompletion(upstream, responseModel, audit);
 
   const responseText = await upstream.text();
   const parsedPayload = parseMaybeSse(responseText);
   const text = cleanAssistantText(extractTextFromResponsesPayload(parsedPayload), true);
   const toolCalls = extractToolCallsFromResponsesPayload(parsedPayload);
-  return json({
+  const responsePayload = {
     id: `chatcmpl_${crypto.randomUUID()}`,
     object: "chat.completion",
     created: Math.floor(Date.now() / 1000),
@@ -114,7 +145,9 @@ async function handleChatCompletions(request: Request) {
       },
     ],
     usage: null,
-  });
+  };
+  finishAuditCall(audit, { status: 200, ok: true, response_json: responsePayload, response_text: text });
+  return json(responsePayload);
 }
 
 async function fetchCodexResponses(payload: Record<string, unknown>) {
@@ -240,40 +273,51 @@ function messageText(content: ChatMessage["content"]): string {
   return String(content);
 }
 
-function streamChatCompletion(upstream: Response, modelName: string) {
+function streamChatCompletion(upstream: Response, modelName: string, audit: ReturnType<typeof createAuditCall>) {
   const encoder = new TextEncoder();
   const decoder = new TextDecoder();
   const id = `chatcmpl_${crypto.randomUUID()}`;
   let buffer = "";
+  let responseText = "";
 
   const stream = new ReadableStream({
     async start(controller) {
-      controller.enqueue(encoder.encode(`data: ${JSON.stringify(chatChunk(id, modelName, { role: "assistant" }))}\n\n`));
-      if (!upstream.body) {
-        controller.enqueue(encoder.encode("data: [DONE]\n\n"));
-        controller.close();
-        return;
-      }
+      try {
+        controller.enqueue(encoder.encode(`data: ${JSON.stringify(chatChunk(id, modelName, { role: "assistant" }))}\n\n`));
+        if (!upstream.body) {
+          controller.enqueue(encoder.encode("data: [DONE]\n\n"));
+          finishAuditCall(audit, { status: 200, ok: true, response_text: "", response_json: { id, model: modelName, stream: true, content: "" } });
+          controller.close();
+          return;
+        }
 
-      for await (const chunk of upstream.body) {
-        buffer += decoder.decode(chunk, { stream: true });
-        const parts = buffer.split("\n\n");
-        buffer = parts.pop() ?? "";
-        for (const part of parts) {
-          const data = sseData(part);
-          if (!data || data === "[DONE]") continue;
-          const parsed = safeJson(data);
-          const delta = extractStreamingTextDelta(parsed);
-          if (delta) {
-            const cleaned = cleanAssistantText(delta, false);
-            if (cleaned) controller.enqueue(encoder.encode(`data: ${JSON.stringify(chatChunk(id, modelName, { content: cleaned }))}\n\n`));
+        for await (const chunk of upstream.body) {
+          buffer += decoder.decode(chunk, { stream: true });
+          const parts = buffer.split("\n\n");
+          buffer = parts.pop() ?? "";
+          for (const part of parts) {
+            const data = sseData(part);
+            if (!data || data === "[DONE]") continue;
+            const parsed = safeJson(data);
+            const delta = extractStreamingTextDelta(parsed);
+            if (delta) {
+              const cleaned = cleanAssistantText(delta, false);
+              if (cleaned) {
+                responseText += cleaned;
+                controller.enqueue(encoder.encode(`data: ${JSON.stringify(chatChunk(id, modelName, { content: cleaned }))}\n\n`));
+              }
+            }
           }
         }
-      }
 
-      controller.enqueue(encoder.encode(`data: ${JSON.stringify({ ...chatChunk(id, modelName, {}), choices: [{ index: 0, delta: {}, finish_reason: "stop" }] })}\n\n`));
-      controller.enqueue(encoder.encode("data: [DONE]\n\n"));
-      controller.close();
+        controller.enqueue(encoder.encode(`data: ${JSON.stringify({ ...chatChunk(id, modelName, {}), choices: [{ index: 0, delta: {}, finish_reason: "stop" }] })}\n\n`));
+        controller.enqueue(encoder.encode("data: [DONE]\n\n"));
+        finishAuditCall(audit, { status: 200, ok: true, response_text: responseText, response_json: { id, model: modelName, stream: true, content: responseText } });
+        controller.close();
+      } catch (error) {
+        finishAuditCall(audit, { status: 500, ok: false, response_text: responseText, error_json: openAiError("stream_error", error instanceof Error ? error.message : "Unknown stream error") });
+        controller.error(error);
+      }
     },
   });
 
@@ -417,6 +461,62 @@ function unique(values: string[]) {
 
 function openAiError(type: string, message: string) {
   return { error: { message, type, param: null, code: null } };
+}
+
+async function auditResponse(audit: ReturnType<typeof createAuditCall>, upstream: Response, headers: Headers, errorBody = false) {
+  const contentType = headers.get("Content-Type") ?? "";
+  if (contentType.includes("text/event-stream")) return auditStreamingResponse(audit, upstream, headers, errorBody);
+
+  const responseText = await upstream.text();
+  const parsed = safeJson(responseText);
+  finishAuditCall(audit, {
+    status: upstream.status,
+    ok: upstream.ok,
+    ...(errorBody ? { error_json: parsed ?? responseText } : { response_json: parsed ?? responseText, response_text: typeof parsed === "string" ? parsed : responseText }),
+  });
+  return withCors(new Response(responseText, { status: upstream.status, statusText: upstream.statusText, headers }));
+}
+
+function auditStreamingResponse(audit: ReturnType<typeof createAuditCall>, upstream: Response, headers: Headers, errorBody: boolean) {
+  const decoder = new TextDecoder();
+  let responseText = "";
+
+  const stream = new ReadableStream({
+    async start(controller) {
+      try {
+        if (!upstream.body) {
+          finishAuditCall(audit, { status: upstream.status, ok: upstream.ok, response_text: "" });
+          controller.close();
+          return;
+        }
+
+        for await (const chunk of upstream.body) {
+          responseText += decoder.decode(chunk, { stream: true });
+          controller.enqueue(chunk);
+        }
+
+        const parsed = parseMaybeSse(responseText) ?? safeJson(responseText);
+        finishAuditCall(audit, {
+          status: upstream.status,
+          ok: upstream.ok,
+          ...(errorBody ? { error_json: parsed ?? responseText } : { response_json: parsed ?? responseText, response_text: responseText }),
+        });
+        controller.close();
+      } catch (error) {
+        finishAuditCall(audit, { status: 500, ok: false, response_text: responseText, error_json: openAiError("stream_error", error instanceof Error ? error.message : "Unknown stream error") });
+        controller.error(error);
+      }
+    },
+  });
+
+  return withCors(new Response(stream, { status: upstream.status, statusText: upstream.statusText, headers }));
+}
+
+function clientIp(request: Request) {
+  return request.headers.get("cf-connecting-ip")
+    ?? request.headers.get("x-forwarded-for")?.split(",")[0]?.trim()
+    ?? request.headers.get("x-real-ip")
+    ?? null;
 }
 
 function json(payload: unknown, status = 200) {
