@@ -100,10 +100,6 @@ export function finishAuditCall(record: AuditRecord | null, update: AuditUpdate)
   });
 }
 
-export function auditDbPath() {
-  return AUDIT_DISABLED ? null : AUDIT_DB_PATH;
-}
-
 function auditValue(key: string, value: unknown) {
   if (key.endsWith("_json")) return value === undefined ? null : stringify(value);
   if (typeof value === "boolean") return value ? 1 : 0;

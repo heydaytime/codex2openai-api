@@ -1,5 +1,5 @@
 import { getCodexAuthHeaders } from "./codex-auth";
-import { auditDbPath, createAuditCall, finishAuditCall, updateAuditCall } from "./audit-db";
+import { createAuditCall, finishAuditCall, updateAuditCall } from "./audit-db";
 
 const PORT = Number(process.env.CODEX_WRAPPER_PORT ?? 4010);
 const CODEX_BASE_URL = (process.env.CODEX_BASE_URL ?? "https://chatgpt.com/backend-api/codex").replace(/\/$/, "");
@@ -57,7 +57,7 @@ const server = Bun.serve({
 
     try {
       if (url.pathname === "/health") {
-        const payload = { ok: true, defaultModel: DEFAULT_MODEL, codexBaseUrl: CODEX_BASE_URL, auditDbPath: auditDbPath() };
+        const payload = { ok: true };
         finishAuditCall(audit, { status: 200, ok: true, response_json: payload });
         return json(payload);
       }
