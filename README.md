@@ -281,6 +281,20 @@ sqlite3 data/codex-wrapper.sqlite \
   "select created_at, path, request_model, upstream_model, stream, status, duration_ms from api_calls order by created_at desc limit 20;"
 ```
 
+Print recent prompts and responses in a readable format:
+
+```bash
+bun run codex:audit
+```
+
+Options:
+
+```bash
+bun run codex:audit --limit 20
+bun run codex:audit --full
+bun run codex:audit --db /home/heyday/codex2openai-api/data/codex-wrapper.sqlite
+```
+
 Inspect one full call:
 
 ```bash

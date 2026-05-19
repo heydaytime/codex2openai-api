@@ -12,6 +12,7 @@
     "codex:wrapper": "bun run server/codex-openai-wrapper.ts",
     "codex:wrapper:dev": "bun run --watch server/codex-openai-wrapper.ts",
     "codex:test": "bun run scripts/test-codex-wrapper.ts",
+    "codex:audit": "bun run scripts/show-audit-log.ts",
     "typecheck": "tsc --noEmit",
     "test": "bun run scripts/test-codex-wrapper.ts",
     "build": "bun run typecheck && bun run frontend:build"
