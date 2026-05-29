@@ -24,8 +24,6 @@ type ChatCompletionRequest = {
   messages?: ChatMessage[];
   stream?: boolean;
   temperature?: number;
-  max_tokens?: number;
-  max_completion_tokens?: number;
   tools?: unknown[];
   tool_choice?: unknown;
   response_format?: unknown;
@@ -194,8 +192,6 @@ function chatToResponsesPayload(body: ChatCompletionRequest): Record<string, unk
     store: false,
   };
 
-  const maxOutputTokens = body.max_completion_tokens ?? body.max_tokens;
-  if (maxOutputTokens) payload.max_output_tokens = maxOutputTokens;
   if (body.temperature !== undefined) payload.temperature = body.temperature;
   if (body.tools) payload.tools = chatToolsToResponsesTools(body.tools);
   if (body.tool_choice) payload.tool_choice = chatToolChoiceToResponsesToolChoice(body.tool_choice);
