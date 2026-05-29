@@ -139,13 +139,13 @@ Supported:
 - `messages`
 - `stream`
 - `temperature`
-- `max_tokens`
-- `max_completion_tokens`
 - `reasoning_effort`
 - basic `response_format`
 - passthrough `tools` / `tool_choice`
 
 The wrapper transforms chat-completions messages into a Codex Responses API request.
+
+Token cap fields such as `max_tokens` and `max_completion_tokens` are accepted from OpenAI-compatible clients but intentionally ignored. The Codex upstream rejects the translated `max_output_tokens` field, so the wrapper does not forward token caps.
 
 ### `POST /v1/responses`
 
@@ -353,6 +353,7 @@ bun run typecheck        # TypeScript check
 ## Limitations
 
 - `/v1/models` returns the configured model list if upstream model discovery is unavailable.
+- `max_tokens` and `max_completion_tokens` are ignored instead of forwarded because Codex upstream rejects `max_output_tokens`.
 - `usage` is currently returned as `null` for chat completions.
 - Advanced OpenAI SDK edge cases may need additional response-shape normalization.
 - Tool calls are passed through to Responses format, but exhaustive OpenAI tool-call compatibility should be tested with your target client.
